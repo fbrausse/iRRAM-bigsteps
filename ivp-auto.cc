@@ -2576,17 +2576,18 @@ public:
 		r.resize(d);
 		for (unsigned nu=0; nu<d; nu++) {
 			for (auto it = F.iterator(nu, F.mu()); it; ++it) {
-				POLYNOMIAL<REAL> p;
+				POLYNOMIAL<REAL> p/*(F(nu,it))*/;
 				p.set_coeff(it->ik[d], F(nu, it)); /* constant poly: c_{\nu,k,i} */
 				for (unsigned xi : it->idx_i_gt0) {
 					POLYNOMIAL<REAL> q;
 					q.set_coeff(it->ik[xi], 1);
-					p += imod(q(this->p[n][xi]), n);
+					p *= q(this->p[n][xi]);
 				}
-				r[nu] += p;
+				r[nu] += imod(p, n+1);
 			}
 			POLYNOMIAL<REAL> q = r[nu].primitive();
-			r[nu] = q + POLYNOMIAL<REAL>(w[nu] - q(t0));
+			q += POLYNOMIAL<REAL>(w[nu] - q(t0));
+			r[nu] = q;
 		}
 		n++;
 	}
@@ -2599,7 +2600,7 @@ public:
 			step();
 
 		for (unsigned nu=0; nu<F.dimension(); nu++)
-			result[nu] = p[n][nu].degree() < n ? REAL(0) : p[n][nu][n];
+			result[nu] = p[n+1][nu].degree() < n ? REAL(0) : p[n+1][nu][n];
 
 		return result;
 	}
@@ -3099,7 +3100,9 @@ void compute()
 
 	print_iterator(F);
 
-#define METHOD_PICARD	0
+#ifndef METHOD_PICARD
+# define METHOD_PICARD	0
+#endif
 
 	if (F.is_autonomous())
 		plot_output<true,!!METHOD_PICARD>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));

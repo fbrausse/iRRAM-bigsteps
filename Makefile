@@ -2,7 +2,7 @@
 
 # settings, individual section
 
-IRRAM           = iRRAM_2013_01/installed
+IRRAM           = /home/kane/uni/bbA-Praktikum/iRRAM_2013_01/installed
 PKG_CONFIG_PATH = ~/bin/installed/lib64/pkgconfig
 
 PKG_CONFIG      = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config
@@ -18,9 +18,9 @@ EXES      = \
 	nbody \
 
 ivp_OBJS     = ivp-auto.o
-ivp_LDFLAGS  = -L"$(IRRAM)"/lib64 -Wl,-rpath -Wl,"$(IRRAM)"/lib64 #-pg
+ivp_LDFLAGS  = -L $(IRRAM)/lib64 -Wl,-rpath -Wl,$(IRRAM)/lib64 #-pg
 ivp_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM # -lgcov
-ivp_CXXFLAGS = -I"$(IRRAM)"/include #-pg
+ivp_CXXFLAGS = -I $(IRRAM)/include -DMETHOD_PICARD=$(PICARD) #-pg
 
 pendulum_OBJS    = pendulum-vis.o
 pendulum_PKGS    = cairo sdl
