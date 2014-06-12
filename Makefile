@@ -2,25 +2,33 @@
 
 # settings, individual section
 
-IRRAM           = /home/kane/uni/bbA-Praktikum/iRRAM_2013_01/installed
-PKG_CONFIG_PATH = ~/bin/installed/lib64/pkgconfig
+#IRRAM           = /home/info04/brausse/IVP-tests/iRRAM_2013_01/installed
+#PKG_CONFIG_PATH = ~/bin/installed/lib64/pkgconfig
+include Makefile.paths
+
+# g++ <= 4.7 cannot handle the syntax properly
+#CXX = clang++
 
 PKG_CONFIG      = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config
 
-CFLAGS    = -O2 -Wall -DNDEBUG #-g #-pg #--coverage #-Wextra -pedantic
-CFLAGS   += -Wextra -Wno-unused-parameter
-CXXFLAGS := -std=c++11 $(CFLAGS) -Wno-tautological-compare
-CFLAGS   := -std=c11 $(CFLAGS)
+override CFLAGS   += -O2 -Wall -DNDEBUG -pg #--coverage #-Wextra -pedantic
+override CFLAGS   += -Wextra -Wno-unused-parameter
+override CXXFLAGS := $(CXXFLAGS) -std=c++11 $(CFLAGS) -Wno-tautological-compare
+override CFLAGS   := -std=c11 $(CFLAGS)
 
 EXES      = \
 	ivp \
 	pendulum \
 	nbody \
 
-ivp_OBJS     = ivp-auto.o
-ivp_LDFLAGS  = -L $(IRRAM)/lib64 -Wl,-rpath -Wl,$(IRRAM)/lib64 #-pg
+ivp_OBJS     = ivp.o
+ivp_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib -pg
 ivp_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM # -lgcov
-ivp_CXXFLAGS = -I $(IRRAM)/include -DMETHOD_PICARD=$(PICARD) #-pg
+ivp_CXXFLAGS = -I $(IRRAM)/include #-pg
+
+ifneq ($(PICARD),)
+ivp_CXXFLAGS += -DMETHOD_PICARD=$(PICARD)
+endif
 
 pendulum_OBJS    = pendulum-vis.o
 pendulum_PKGS    = cairo sdl
@@ -60,7 +68,7 @@ endef
 
 .PHONY: all clean
 
-all: $(EXES)
+all: ivp #$(EXES)
 
 $(foreach exe,$(EXES),$(eval $(call EXE_template,$(exe))))
 

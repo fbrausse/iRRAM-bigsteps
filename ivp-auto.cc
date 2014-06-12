@@ -3049,6 +3049,36 @@ void compute()
 	}
 }
 #elif 1
+#include <cstdarg>
+static void die(int exitval, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	exit(exitval);
+}
+
+static const char usage[] =
+"echo <p> { <small-steps> | <delta_t_num>/<delta_t_den> } <delta> <eps>"
+	" <R-scale> <x> <path/to/coeffs> <iv1> ... <ivd> | ivp [-iRRAM-OPTS]\n"
+"\n"
+"  p            precision of output values in decimal places\n"
+"  small-steps  # of steps to divide each big-step into\n"
+"  delta_t_*    fraction defining the evenly spaced step-size for printing results\n"
+"  delta        t-radius for estimation of (R,M)\n"
+"  eps          solution-space-radius for estimation of (R,M)\n"
+"  R-scale      proceed with each big-step only (<R-scale>)*R in t\n"
+"  x            final t to stop the iteration at (or around)\n"
+"  path/to/coeffs  coefficients of the flow function in the format '<d> (<nu> <k> <i1> ... <id>)*'\n"
+"  iv*          initial values at t=0\n"
+;
+
+static void input_error(const char *which)
+{
+	die(1, "input error: %s invalid\n\n%s", which, usage);
+}
+
 void compute()
 {
 	int p;
@@ -3056,24 +3086,24 @@ void compute()
 	REAL delta, eps, final_x, alpha, R_scale;
 	std::string fname;
 
-	cout << "# input: p, { small-steps | delta_t_nom/delta_t_den }, delta, eps, R-scale, x\n";
-	cout << "# file format: <d> (<nu> <k> <i1> ... <id>)*\n";
-	cout << "# file input: fname, w1, ..., wd\n";
+	cout << "# input: p, { small-steps | delta_t_num/delta_t_den }, delta, eps, R-scale, x, fname, w1, ..., wd\n";
+	cout << "# fname file format: <d> (<nu> <k> <i1> ... <id>)*\n";
 
-	cin >> p;
-	cin >> ssteps;
-	cin >> delta;
-	cin >> eps;
-	cin >> R_scale;
-	cin >> final_x;
+	if (!(cin >> p)) input_error("<p>");
+	if (!(cin >> ssteps)) input_error("{ <smalls-steps> | <delta_t_num>/<delta_t_den> }");
+	if (!(cin >> delta)) input_error("<delta>");
+	if (!(cin >> eps)) input_error("<eps>");
+	if (!(cin >> R_scale)) input_error("<R-scale>");
+	if (!(cin >> final_x)) input_error("<x>");
 
-	cin >> fname;
+	if (!(cin >> fname)) input_error("<path/to/coeffs>");
 	POLYNOMIAL_FLOW F = read_poly_flow(fname.c_str());
 	std::vector<REAL> w(F.dimension());
-	for (REAL &r : w) {
+	unsigned i;
+	for (i=0; i<F.dimension(); i++) {
 		std::string s;
-		cin >> s;
-		r = toREAL(s.c_str());
+		if (!(cin >> s) || !s.length()) input_error("<iv%d>");
+		w[i] = toREAL(s.c_str());
 	}
 
 	cout << setRwidth(p);
@@ -3085,9 +3115,9 @@ void compute()
 #endif
 
 	if (F.is_autonomous())
-		plot_output<true,!!METHOD_PICARD>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
 	else
-		plot_output<false,!!METHOD_PICARD>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
 }
 #elif 1
 void compute()
