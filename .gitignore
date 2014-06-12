@@ -1,2 +1,3 @@
 *.o
 ivp
+Makefile.paths
