@@ -1680,18 +1680,18 @@ static void die(int exitval, const char *fmt, ...)
 }
 
 static const char usage[] =
-"echo <p> { <small-steps> | <delta_t_num>/<delta_t_den> } <delta> <eps>"
+"usage: echo <p> { <small-steps> | <delta_t_num>/<delta_t_den> } <delta> <eps>"
 	" <R-scale> <x> <path/to/coeffs> <iv1> ... <ivd> | ivp [-iRRAM-OPTS]\n"
 "\n"
-"  p            precision of output values in decimal places\n"
-"  small-steps  # of steps to divide each big-step into\n"
-"  delta_t_*    fraction defining the evenly spaced step-size for printing results\n"
-"  delta        t-radius for estimation of (R,M)\n"
-"  eps          solution-space-radius for estimation of (R,M)\n"
-"  R-scale      proceed with each big-step only (<R-scale>)*R in t\n"
-"  x            final t to stop the iteration at (or around)\n"
+"  p               precision of output values in decimal places\n"
+"  small-steps     # of steps to divide each big-step into\n"
+"  delta_t_*       fraction defining the evenly spaced step-size for printing results\n"
+"  delta           t-radius for estimation of (R,M)\n"
+"  eps             solution-space-radius for estimation of (R,M)\n"
+"  R-scale         proceed with each big-step only (<R-scale>)*R in t\n"
+"  x               final t to stop the iteration at (or around)\n"
 "  path/to/coeffs  coefficients of the flow function in the format '<d> (<nu> <k> <i1> ... <id>)*'\n"
-"  iv*          initial values at t=0\n"
+"  iv*             initial values at t=0\n"
 ;
 
 static void input_error(const char *which)
