@@ -1193,9 +1193,9 @@ struct F_REAL {
 	inline F_REAL() : valid(false), is_zero(false) {}
 	inline explicit F_REAL(int v) : x(v), valid(true), is_zero(v == 0) {}
 
-/*******************************************************
- *  Usage of the below stuff slows down the computation
- *******************************************************
+/***************************************************************
+ *  Usage of the below stuff indeed slows down the computation *
+ ***************************************************************
 
 	inline explicit F_REAL(const REAL &v, bool is_zero = false)
 	: x(v), valid(true), is_zero(is_zero) {}
@@ -1547,11 +1547,11 @@ struct Smallstep_Control {
 	}
 };
 
-template <bool autonomous,bool picard,typename Flow>
+template <bool autonomous,bool picard>
 void plot_output(
 	std::vector<REAL> w,
 	const REAL &final_t,
-	Flow F,
+	POLYNOMIAL_FLOW F,
 	const REAL &delta,
 	const REAL &eps,
 	const REAL &R_scale,
