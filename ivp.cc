@@ -1547,22 +1547,26 @@ struct Smallstep_Control {
 	}
 };
 
+struct Input {
+	int p;
+	Smallstep_Control ssteps;
+	REAL delta, eps, final_t, R_scale;
+	POLYNOMIAL_FLOW F;
+	std::vector<REAL> w;
+};
+
 template <bool autonomous,bool picard>
-void plot_output(
-	std::vector<REAL> w,
-	const REAL &final_t,
-	POLYNOMIAL_FLOW F,
-	const REAL &delta,
-	const REAL &eps,
-	const REAL &R_scale,
-	const Smallstep_Control &smallsteps
-) {
+void plot_output(const Input &in)
+{
 	FUNCTION<unsigned int,std::vector<REAL>> a;
 	FUNCTION<REAL,std::vector<REAL>> taylor;
 
 	const int cmp_p = -10;
 	const int delta_t_p = -53;
-	const DYADIC end_t = approx(final_t, cmp_p) + scale(INTEGER(2), cmp_p);
+	const DYADIC end_t = approx(in.final_t, cmp_p) + scale(INTEGER(2), cmp_p);
+
+	POLYNOMIAL_FLOW F = in.F;
+	std::vector<REAL> w = in.w;
 
 	DYADIC_precision dyadic_prec(delta_t_p);
 
@@ -1588,14 +1592,14 @@ void plot_output(
 		t.t = 0;
 		t.start();
 
-		F.get_RM(w, 0, delta, eps, R, M);
-		F.get_RM2(w, 0, delta, eps, R2, M2);
+		F.get_RM(w, 0, in.delta, in.eps, R, M);
+		F.get_RM2(w, 0, in.delta, in.eps, R2, M2);
 		cout << "# (R ,M ) = (" << R << ", " << M << ")\n";
 		cout << "# (R2,M2) = (" << R2 << ", " << M2 << ")\n";
 
 		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
 		 *  und  DYADIC_precision(n) */
-		delta_t = approx(R2 * R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
+		delta_t = approx(R2 * in.R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
 		cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
 		cout << "# w = (" << w[0];
 		for (unsigned k=1; k<w.size(); k++)
@@ -1631,9 +1635,9 @@ void plot_output(
 			max_err.exponent++;
 		}
 
-		if (smallsteps.n_not_delta) {
-			for (unsigned j=0; j<smallsteps.n_smallsteps; j++) {
-				DYADIC t = (delta_t / (int)smallsteps.n_smallsteps) * (int)j;
+		if (in.ssteps.n_not_delta) {
+			for (unsigned j=0; j<in.ssteps.n_smallsteps; j++) {
+				DYADIC t = (delta_t / (int)in.ssteps.n_smallsteps) * (int)j;
 				std::vector<REAL> y = taylor(REAL(t));
 				cout << "taylor( " << (t+current_t) << " ) = ( ";
 				cout << y[0];
@@ -1642,7 +1646,7 @@ void plot_output(
 				cout << " ), max_coeff = " << last_taylor_coeff << "\n" << std::flush;
 			}
 		} else {
-			for (; small_t < current_t + delta_t; small_t = small_t + REAL(smallsteps.small_delta_t).as_DYADIC()) {
+			for (; small_t < current_t + delta_t; small_t = small_t + REAL(in.ssteps.small_delta_t).as_DYADIC()) {
 				std::vector<REAL> y = taylor(REAL(small_t - current_t));
 				cout << "taylor( " << small_t << " ) = ( ";
 				cout << y[0];
@@ -1699,7 +1703,7 @@ static void input_error(const char *which)
 	die(1, "input error: %s invalid\n\n%s", which, usage);
 }
 
-void compute()
+static Input read_input()
 {
 	int p;
 	std::string ssteps;
@@ -1726,12 +1730,19 @@ void compute()
 		w[i] = parse_REAL(s.c_str());
 	}
 
-	cout << setRwidth(p);
+	return { p, Smallstep_Control(ssteps.c_str()), delta, eps, final_x, R_scale, read_poly_flow(fname.c_str()), w };
+}
 
-	print_iterator(F);
+void compute()
+{
+	Input in = read_input();
 
-	if (F.is_autonomous())
-		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+	cout << setRwidth(in.p);
+
+	print_iterator(in.F);
+
+	if (in.F.is_autonomous())
+		plot_output<true,!!(METHOD_PICARD-0)>(in);
 	else
-		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<false,!!(METHOD_PICARD-0)>(in);
 }
