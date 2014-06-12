@@ -3105,9 +3105,9 @@ void compute()
 #endif
 
 	if (F.is_autonomous())
-		plot_output<true,!!METHOD_PICARD>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
 	else
-		plot_output<false,!!METHOD_PICARD>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
 }
 #elif 1
 void compute()
