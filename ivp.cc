@@ -835,36 +835,7 @@ private:
 	std::vector<std::vector<I_type>> c;
 };
 
-
-template <typename Flow>
-REAL flow_lipschitz_C(
-	const Flow &F, unsigned nu,
-	const std::vector<REAL> &w,
-	const REAL &delta, const REAL &eps
-) {
-	REAL sum(0);
-	assert(F.mu() >= 0); /* sonst "eh alles vorbei" :) */
-
-	REAL abs_w(0);
-	for (unsigned j = 0; j < w.size(); j++) {
-		abs_w += square(w[j]);
-	}
-	abs_w = sqrt(abs_w);
-	REAL abs_wd = abs_w + delta + eps;
-
-	for (auto idx = F.iterator(nu, F.mu()); idx; ++idx) {
-		unsigned ik_sum = 0;
-		for (unsigned j=0; j<=F.dimension(); j++)
-			ik_sum += idx->ik[j];
-		if (ik_sum == 0)
-			continue;
-		sum += abs(F(nu, idx)) * power(abs_wd, ik_sum - 1) * (int)ik_sum;
-	}
-
-	return sum;
-}
-
-static REAL toREAL(const char *s)
+static REAL parse_REAL(const char *s)
 {
 	if (!strcmp(s, "pi"))
 		return pi();
@@ -913,7 +884,7 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 		if (fscanf(f, "%s", s) < 0)			/* c_{nu,k,i1,...,id} */
 			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
 
-		F.add_coeff(nu, VI(toREAL(s), ik));
+		F.add_coeff(nu, VI(parse_REAL(s), ik));
 	}
 
 	free(s);
@@ -922,7 +893,7 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 	return F;
 err:
 	fprintf(stderr,
-		"invalid coefficient input file: expected %s at offset %lu\n",
+		"invalid coefficient input file: expected <%s> at offset %lu\n",
 		msg, ftell(f));
 	free(s);
 	fclose(f);
@@ -964,13 +935,7 @@ class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<unsigned int,std::vec
 	}
 
 	inline void combination_recursive(std::vector<int> &n, unsigned j, REAL &sum, const typename F::iterator_type &idx, unsigned l) const
-	{/*
-		if (l == 0) {
-			for (unsigned k=j; k < n.size(); k++) n[k] = 0;
-			sum += a_vector_power(n, idx);
-			return;
-		}*/
-
+	{
 		if (j == n.size() -1) {
 			n[j] = (iv_is_zero ? idx[j] : 0) + l;
 			sum += a_vector_power(n, idx);
@@ -1074,43 +1039,7 @@ class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<unsigned int,std::vec
 			}
 
 			REAL sum_a_ni = 0;
-
 #if 0
-			unsigned zero_i = 0;
-			for (unsigned i=0; i<_dimension; i++)
-				if (idx[i] == 0)
-					zero_i++;
-
-			for (Combination comb(_dimension - zero_i, l_); comb; ++comb) {
-				comb.get(n);
-
-				if (iv_is_zero)
-					for (unsigned i=0, j=0; i<_dimension; i++)
-						if (idx[i] > 0)
-							n[j++] += idx[i];
-
-				dbg("\t");
-				for (unsigned i=0, j=0; i<_dimension; i++)
-					dbg("n_%u = %d, ", i+1, idx[i] == 0 ? 0 : n[j++]);
-				dbg("\n");
-
-#if 1
-				REAL mul(1);
-				for (unsigned i=0, j=0; i<_dimension; i++)
-					if (idx[i] > 0)
-						mul *= a[i][idx[i]][n[j++]];
-				sum_a_ni += mul;
-#else
-				for (unsigned i=0, j=0; i<_dimension; i++)
-					if (idx[i] == 0)
-						n_[i] = 0;
-					else
-						n_[i] = n[j++];
-
-				sum_a_ni += a_vector_power(n_, idx);
-#endif
-			}
-#elif 0
 			combination_recursive(n_, 0, sum_a_ni, idx, l_);
 #elif 0
 			combination_recursive2(REAL(1), 0, _dimension, sum_a_ni, idx, l_);
@@ -1262,7 +1191,12 @@ struct F_REAL {
 	bool is_zero;
 
 	inline F_REAL() : valid(false), is_zero(false) {}
-	inline explicit F_REAL(int v) : x(v), valid(true), is_zero(v == 0) {}/*
+	inline explicit F_REAL(int v) : x(v), valid(true), is_zero(v == 0) {}
+
+/*******************************************************
+ *  Usage of the below stuff slows down the computation
+ *******************************************************
+
 	inline explicit F_REAL(const REAL &v, bool is_zero = false)
 	: x(v), valid(true), is_zero(is_zero) {}
 
@@ -1316,7 +1250,8 @@ struct F_REAL {
 		valid = b.valid;
 		is_zero = b.is_zero;
 		return *this;
-	}*/
+	}
+*/
 };
 
 template <typename F>
@@ -1335,21 +1270,6 @@ public:
 		for (unsigned j=0; j <= n; j++)
 			sum += a(nu,1,j) * a(nu,i,n-j);
 		return sum;
-	}
-
-	template <typename V, typename W>
-	inline void combination_recursive3(const REAL &mul, unsigned j, unsigned d, REAL &sum, const V &i, const W &idx, unsigned l)
-	{
-		if (j == d-1) {
-			unsigned k = l;
-			sum += mul * a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k);/*
-		} else if (l == 0) {
-			unsigned k = 0; 
-			combination_recursive3(mul*a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k), j+1, d, sum, i, idx, l-k);*/
-		} else {
-			for (unsigned k = 0; k <= l; k++)
-				combination_recursive3(mul*a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k), j+1, d, sum, i, idx, l-k);
-		}
 	}
 
 	template <typename V, typename W>
@@ -1373,12 +1293,7 @@ public:
 	REAL auto_ivp_38(unsigned int nu, int l)
 	{
 		REAL sum(0);
-/*
-		std::vector<int> n;
-		std::vector<int> n_;
-		n.resize(_dimension);
-		n_.resize(_dimension);
-*/
+
 		dbg("auto_ivp(nu=%u, l=%u)\n", nu, l);
 		for (typename F::iterator_type idx = _flow.iterator(nu, l); idx; ++idx) {
 			unsigned i;
@@ -1412,61 +1327,7 @@ public:
 			dbg("\n");
 
 			REAL c = _flow(nu, idx);
-#if 0
-			if (l_ == 0) {
-				REAL mul(1);
-				for (unsigned j=0; j<_dimension; j++)
-					mul *= a(j,idx[j],iv_is_zero ? idx[j] : 0);
-				sum += REAL(c) * mul;
-				continue;
-			}
-#if 0
-			REAL sum_a_ni = 0;
-			unsigned zero_i = 0;
-			for (unsigned i=0; i<_dimension; i++)
-				if (idx[i] == 0)
-					zero_i++;
 
-			for (Combination comb(_dimension - zero_i, l_); comb; ++comb) {
-				comb.get(n);
-
-				if (iv_is_zero)
-					for (unsigned i=0, j=0; i<_dimension; i++)
-						if (idx[i] > 0)
-							n[j++] += idx[i];
-
-				dbg("\t");
-				for (unsigned i=0, j=0; i<_dimension; i++)
-					dbg("n_%u = %d, ", i+1, idx[i] == 0 ? 0 : n[j++]);
-				dbg("\n");
-
-
-				REAL mul(1);
-				for (unsigned i=0, j=0; i<_dimension; i++)
-					if (idx[i] > 0)
-						mul *= a(i,idx[i],n[j++]);
-				sum_a_ni += mul;
-			}
-			sum += c * sum_a_ni;
-#elif 0
-			REAL sum_a_ni = 0;
-			unsigned j=0;
-			for (unsigned i=0; i<_dimension; i++)
-				if (idx[i] > 0)
-					n[j++] = i;
-			if (j > 0) {
-				combination_recursive3(REAL(1), 0, j, sum_a_ni, n, idx, l_);
-				sum += c * sum_a_ni;
-			}
-#elif 0
-			const typename F::I_type &I = *idx;
-			if (I.ni_gt0 > 0) {
-				REAL sum_a_ni(0);
-				combination_recursive3(REAL(1), 0, I.ni_gt0, sum_a_ni, I.idx_i_gt0, I.ik, l_);
-				sum += c * sum_a_ni;
-			}
-#endif
-#else
 			const typename F::I_type &I = *idx;
 			if (I.ni_gt0 > 0) {
 				sum += c * combination_recursive4(0, I.ni_gt0-1, I.idx_i_gt0, I.ik, l_);
@@ -1476,7 +1337,6 @@ public:
 				/* some a_{\nu,n}^{(i)} is 0 whereas n >= 1:
 				 * nothing to add */
 			}
-#endif
 		}
 
 		return sum / (l+1);
@@ -1565,8 +1425,6 @@ public:
 
 	const std::vector<REAL> w;
 	const bool iv_is_zero;
-
-	// const unsigned int _dimension;
 
 	FUNCTIONAL_IVP_SOLVER_PICARD(
 		const POLYNOMIAL_FLOW &F,
@@ -1865,7 +1723,7 @@ void compute()
 	for (i=0; i<F.dimension(); i++) {
 		std::string s;
 		if (!(cin >> s) || !s.length()) input_error("<iv%d>");
-		w[i] = toREAL(s.c_str());
+		w[i] = parse_REAL(s.c_str());
 	}
 
 	cout << setRwidth(p);
