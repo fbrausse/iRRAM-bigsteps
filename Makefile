@@ -6,9 +6,12 @@
 #PKG_CONFIG_PATH = ~/bin/installed/lib64/pkgconfig
 include Makefile.paths
 
+# g++ <= 4.7 cannot handle the syntax properly
+#CXX = clang++
+
 PKG_CONFIG      = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config
 
-CFLAGS    = -O2 -Wall -DNDEBUG #-g #-pg #--coverage #-Wextra -pedantic
+CFLAGS    = -O2 -Wall -DNDEBUG #-pg #--coverage #-Wextra -pedantic
 CFLAGS   += -Wextra -Wno-unused-parameter
 CXXFLAGS := -std=c++11 $(CFLAGS) -Wno-tautological-compare
 CFLAGS   := -std=c11 $(CFLAGS)
@@ -18,8 +21,8 @@ EXES      = \
 	pendulum \
 	nbody \
 
-ivp_OBJS     = ivp-auto.o
-ivp_LDFLAGS  = -L $(IRRAM)/lib64 -Wl,-rpath -Wl,$(IRRAM)/lib64 #-pg
+ivp_OBJS     = ivp.o
+ivp_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib #-pg
 ivp_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM # -lgcov
 ivp_CXXFLAGS = -I $(IRRAM)/include #-pg
 
