@@ -2559,7 +2559,7 @@ public:
 		const POLYNOMIAL_FLOW &F,
 		const std::vector<REAL> &w,
 		bool iv_is_zero
-	) : F(F), p{std::vector(F.dimension())}, w(w)
+	) : F(F), p{std::vector<POLYNOMIAL<REAL>>(F.dimension())}, w(w)
 	{
 		for (unsigned nu=0; nu<F.dimension(); nu++)
 			p[0][nu].set_coeff(0, w[nu]);
@@ -2567,7 +2567,7 @@ public:
 
 	void step()
 	{
-		/* p(t) <- w + \int_0^t F(s,p(s)) mod s^n ds */
+		/* p_{n+1}(t) <- w + \int_0^t F(s,p_n(s)) mod s^{n+1} ds */
 		REAL t0 = 0;
 		unsigned d = F.dimension();
 		p.resize(n+2);
