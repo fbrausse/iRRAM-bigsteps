@@ -675,52 +675,34 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 {
 	REAL r;
 	unsigned dimension, nu;
-	int n, ret;
-	FILE *f;
 	const char *msg = NULL;
 
-	if (!(f = fopen(fname, "r"))) {
-		perror(fname);
-		exit(1);
-	}
-	ret = fscanf(f, "%u", &dimension);			/* d */
+	irstream in(fname);
+
+	in >> dimension;
 
 	POLYNOMIAL_FLOW F(dimension);
 	std::vector<unsigned> ik(dimension+1);
-	char *s = NULL;
+	std::string s;
 
-	if (ret < 0)
+	if (!in)
 		{ msg = "d"; goto err; }
 
-	while (fscanf(f, "%u", &nu) > 0) {			/* nu */
-		if (fscanf(f, "%u", &ik[dimension]) < 0)	/* k */
-			{ msg = "k"; goto err; }	
+	while ((in >> nu)) {					/* nu */
+		if (!(in >> ik[dimension]))			/* k */
+			{ msg = "k"; goto err; }
 		for (unsigned j=0; j<dimension; j++)
-			if (fscanf(f, "%u", &ik[j]) < 0)	/* i1,...,id */
+			if (!(in >> ik[j]))			/* i1,...,id */
 				{ msg = "i_j"; goto err; }
-		if (fscanf(f, "%*s%n", &n) < 0 || !n)
-			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
-		if (!(s = (char *)realloc(s, n+1))) {
-			perror("realloc");
-			exit(1);
-		}
-		fseek(f, -n, SEEK_CUR);
-		if (fscanf(f, "%s", s) < 0)			/* c_{nu,k,i1,...,id} */
+		if (!(in >> s) || !s.length())			/* c_{nu,k,i1,...,id} */
 			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
 
-		F.add_coeff(nu, VI(parse_REAL(s), ik));
+		F.add_coeff(nu, VI(parse_REAL(s.c_str()), ik));
 	}
-
-	free(s);
-	fclose(f);
 
 	return F;
 err:
-	fprintf(stderr,
-		"invalid coefficient input file: expected <%s> at offset %lu\n",
-		msg, ftell(f));
-	free(s);
-	fclose(f);
+	fprintf(stderr, "invalid coefficient input file: expected <%s>\n", msg);
 	exit(1);
 }
 
