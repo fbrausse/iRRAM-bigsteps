@@ -1,0 +1,11 @@
+1: sun
+2: earth
+3: moon
+
+measures:
+distance in 10^9 m
+time in h
+mass in 10^21 kg
+
+view: camera targets south-pole of earth
+-> earth/moon rotate clockwise around sun/earth

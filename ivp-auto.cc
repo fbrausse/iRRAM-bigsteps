@@ -1164,168 +1164,6 @@ public:
 constexpr typename VANDERPOL_FLOW::I_type VANDERPOL_FLOW::c[];
 
 
-template <typename K>
-class POLYNOMIAL {
-	std::vector<K> c;
-public:
-	POLYNOMIAL() : c{0} {assert(c.size());}
-	inline POLYNOMIAL(const K &c0) : c{c0} {assert(c.size());}
-	inline explicit POLYNOMIAL(const std::vector<K> &c) : c(c)
-	{
-		if (c.size() == 0)
-			this->c.push_back(K(0));
-		assert(this->c.size());
-	}
-	template <typename K2>
-	POLYNOMIAL(const POLYNOMIAL<K2> &p) : c(p.degree() + 1)
-	{
-		for (unsigned i=0; i<c.size(); i++)
-			c[i] = p[i];
-		assert(c.size());
-	}
-
-	void set_coeff(unsigned long i, const K &v)
-	{
-		c.resize(std::max(i+1, c.size()));
-		c[i] = v;
-	}
-
-	template <typename K2>
-	auto operator()(const K2 &x) const -> decltype(c[0]*x)
-	{
-		using KR = decltype(c[0]*x);
-		KR r(0);
-		K2 xi(1);
-		for (const K &ci : c) {
-			r  += ci * xi;
-			xi *= x;
-		}
-		return r;
-	}
-
-	template <typename K2>
-	auto operator()(const POLYNOMIAL<K2> &b) const
-	-> decltype((*this)*(b))
-	{
-		using PR = decltype((*this) * b);
-		PR r;
-		POLYNOMIAL<K2> bi = K2(1);
-		for (const K &ci : c) {
-			r  += POLYNOMIAL(ci) * bi;
-			bi *= b;
-		}
-		return r;
-	}
-
-	/* beware: returns just upper bound, unknown whether c[degree()] == 0 */
-	inline unsigned degree() const { return c.size()-1; }
-
-	inline const K & operator[](unsigned i) const { return c[i]; }
-
-	template <typename K2>
-	POLYNOMIAL & operator+=(const POLYNOMIAL<K2> &b)
-	{
-		c.resize(1+std::max(degree(), b.degree()));
-		for (unsigned i=0; i<=b.degree(); i++)
-			c[i] += b[i];
-		return *this;
-	}
-
-	template <typename K2>
-	inline auto operator+(const POLYNOMIAL<K2> &b) const
-	-> POLYNOMIAL<decltype(c[0]+b[0])>
-	{
-		return POLYNOMIAL<decltype(c[0]+b[0])>(*this) += b;
-	}
-
-	template <typename K2>
-	POLYNOMIAL & operator-=(const POLYNOMIAL<K2> &b)
-	{
-		c.resize(1+std::max(degree(), b.degree()));
-		for (unsigned i=0; i<=b.degree(); i++)
-			c[i] = c[i] - b[i];
-		return *this;
-	}
-
-	template <typename K2>
-	inline auto operator-(const POLYNOMIAL<K2> &b) const
-	-> POLYNOMIAL<decltype(c[0]-b[0])>
-	{
-		return POLYNOMIAL<decltype(c[0]-b[0])>(*this) -= b;
-	}
-
-	POLYNOMIAL operator-() const
-	{
-		POLYNOMIAL r = *this;
-		for (K &ci : r.c)
-			ci = -ci;
-		return r;
-	}
-
-	template <typename K2>
-	auto operator*(const POLYNOMIAL<K2> &b) const
-	-> POLYNOMIAL<decltype(c[0]*b[0])>
-	{
-		using KR = decltype(c[0]*b[0]);
-		std::vector<KR> r(degree() + b.degree() + 1);
-		for (unsigned i=0; i<=degree(); i++)
-			for (unsigned j=0; j<=b.degree(); j++)
-				r[i+j] += c[i] * b[j];
-		return POLYNOMIAL<KR>(r);
-	}
-
-	template <typename K2>
-	inline POLYNOMIAL & operator*=(const POLYNOMIAL<K2> &b)
-	{
-		return *this = *this * b;
-	}
-
-	POLYNOMIAL primitive(const K &C = 0) const
-	{
-		POLYNOMIAL b(std::vector<K>(c.size() + 1));
-		b.c[0] = C;
-		b.c[1] = c[0];
-		for (unsigned i=1; i<c.size(); i++)
-			b.c[i+1] = c[i] / (int)(i+1);
-		return b;
-	}
-
-	POLYNOMIAL derivative() const
-	{
-		POLYNOMIAL b(std::vector<K>(c.size() - 1));
-		for (unsigned i=1; i<c.size(); i++)
-			b.c[i-1] = c[i] * (int)i;
-		return b;
-	}
-
-	friend POLYNOMIAL imod(const POLYNOMIAL &p, unsigned degree)
-	{
-		if (degree > p.degree())
-			return p;
-		decltype(p.c) c(degree);
-		for (unsigned i=0; i<degree; i++)
-			c[i] = p.c[i];
-		return POLYNOMIAL(c);
-	}
-
-	friend orstream & operator<<(orstream &o, const POLYNOMIAL &p)
-	{
-		o << "(" << p[0] << ")";
-		for (unsigned i=1; i<=p.degree(); i++)
-			o << "+(" << p[i] << ")*x^" << i;
-		return o;
-	}
-
-	friend POLYNOMIAL abs(const POLYNOMIAL &p)
-	{
-		POLYNOMIAL r = p;
-		for (K &ci : r.c)
-			ci = abs(ci);
-		return r;
-	}
-};
-
-
 class POLYNOMIAL2 {
 public:
 	struct I {
@@ -2543,7 +2381,172 @@ public:
 	}
 };
 
-class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<unsigned int,std::vector<REAL>> {
+
+template <typename K>
+class POLYNOMIAL {
+	std::vector<K> c;
+public:
+	POLYNOMIAL() : c{0} {assert(c.size());}
+	inline POLYNOMIAL(const K &c0) : c{c0} {assert(c.size());}
+	inline explicit POLYNOMIAL(const std::vector<K> &c) : c(c)
+	{
+		if (c.size() == 0)
+			this->c.push_back(K(0));
+		assert(this->c.size());
+	}
+	template <typename K2>
+	POLYNOMIAL(const POLYNOMIAL<K2> &p) : c(p.degree() + 1)
+	{
+		for (unsigned i=0; i<c.size(); i++)
+			c[i] = p[i];
+		assert(c.size());
+	}
+
+	void set_coeff(unsigned long i, const K &v)
+	{
+		if (i >= c.size())
+			c.resize(i+1);
+		c[i] = v;
+	}
+
+	template <typename K2>
+	auto operator()(const K2 &x) const -> decltype(c[0]*x)
+	{
+		using KR = decltype(c[0]*x);
+		KR r(0);
+		K2 xi(1);
+		for (const K &ci : c) {
+			r  += ci * xi;
+			xi *= x;
+		}
+		return r;
+	}
+
+	template <typename K2>
+	auto operator()(const POLYNOMIAL<K2> &b) const
+	-> decltype((*this)*(b))
+	{
+		using PR = decltype((*this) * b);
+		PR r;
+		POLYNOMIAL<K2> bi = K2(1);
+		for (const K &ci : c) {
+			r  += POLYNOMIAL(ci) * bi;
+			bi *= b;
+		}
+		return r;
+	}
+
+	/* beware: returns just upper bound, unknown whether c[degree()] == 0 */
+	inline unsigned degree() const { return c.size()-1; }
+
+	inline const K & operator[](unsigned i) const { return c[i]; }
+
+	template <typename K2>
+	POLYNOMIAL & operator+=(const POLYNOMIAL<K2> &b)
+	{
+		c.resize(1+std::max(degree(), b.degree()));
+		for (unsigned i=0; i<=b.degree(); i++)
+			c[i] += b[i];
+		return *this;
+	}
+
+	template <typename K2>
+	inline auto operator+(const POLYNOMIAL<K2> &b) const
+	-> POLYNOMIAL<decltype(c[0]+b[0])>
+	{
+		return POLYNOMIAL<decltype(c[0]+b[0])>(*this) += b;
+	}
+
+	template <typename K2>
+	POLYNOMIAL & operator-=(const POLYNOMIAL<K2> &b)
+	{
+		c.resize(1+std::max(degree(), b.degree()));
+		for (unsigned i=0; i<=b.degree(); i++)
+			c[i] = c[i] - b[i];
+		return *this;
+	}
+
+	template <typename K2>
+	inline auto operator-(const POLYNOMIAL<K2> &b) const
+	-> POLYNOMIAL<decltype(c[0]-b[0])>
+	{
+		return POLYNOMIAL<decltype(c[0]-b[0])>(*this) -= b;
+	}
+
+	POLYNOMIAL operator-() const
+	{
+		POLYNOMIAL r = *this;
+		for (K &ci : r.c)
+			ci = -ci;
+		return r;
+	}
+
+	template <typename K2>
+	auto operator*(const POLYNOMIAL<K2> &b) const
+	-> POLYNOMIAL<decltype(c[0]*b[0])>
+	{
+		using KR = decltype(c[0]*b[0]);
+		std::vector<KR> r(degree() + b.degree() + 1);
+		for (unsigned i=0; i<=degree(); i++)
+			for (unsigned j=0; j<=b.degree(); j++)
+				r[i+j] += c[i] * b[j];
+		return POLYNOMIAL<KR>(r);
+	}
+
+	template <typename K2>
+	inline POLYNOMIAL & operator*=(const POLYNOMIAL<K2> &b)
+	{
+		return *this = *this * b;
+	}
+
+	POLYNOMIAL primitive(const K &C = 0) const
+	{
+		POLYNOMIAL b(std::vector<K>(c.size() + 1));
+		b.c[0] = C;
+		b.c[1] = c[0];
+		for (unsigned i=1; i<c.size(); i++)
+			b.c[i+1] = c[i] / (int)(i+1);
+		return b;
+	}
+
+	POLYNOMIAL derivative() const
+	{
+		POLYNOMIAL b(std::vector<K>(c.size() - 1));
+		for (unsigned i=1; i<c.size(); i++)
+			b.c[i-1] = c[i] * (int)i;
+		return b;
+	}
+
+	friend POLYNOMIAL imod(const POLYNOMIAL &p, unsigned degree)
+	{
+		if (degree > p.degree())
+			return p;
+		decltype(p.c) c(degree);
+		for (unsigned i=0; i<degree; i++)
+			c[i] = p.c[i];
+		return POLYNOMIAL(c);
+	}
+
+	friend orstream & operator<<(orstream &o, const POLYNOMIAL &p)
+	{
+		o << "(" << p[0] << ")";
+		for (unsigned i=1; i<=p.degree(); i++)
+			o << "+(" << p[i] << ")*x^" << i;
+		return o;
+	}
+
+	friend POLYNOMIAL abs(const POLYNOMIAL &p)
+	{
+		POLYNOMIAL r = p;
+		for (K &ci : r.c)
+			ci = abs(ci);
+		return r;
+	}
+};
+
+class FUNCTIONAL_IVP_SOLVER_PICARD
+: public FUNCTIONAL_object<unsigned int,std::vector<REAL>>
+{
 public:
 	const POLYNOMIAL_FLOW F;
 	/* p[n][nu] */
@@ -2551,24 +2554,20 @@ public:
 	unsigned n = 0;
 
 	const std::vector<REAL> w;
-	const bool iv_is_zero;
-
-	// const unsigned int _dimension;
 
 	FUNCTIONAL_IVP_SOLVER_PICARD(
 		const POLYNOMIAL_FLOW &F,
 		const std::vector<REAL> &w,
 		bool iv_is_zero
-	) : F(F), p(1), w(w), iv_is_zero(iv_is_zero)
+	) : F(F), p{std::vector<POLYNOMIAL<REAL>>(F.dimension())}, w(w)
 	{
-		p[0].resize(F.dimension());
 		for (unsigned nu=0; nu<F.dimension(); nu++)
 			p[0][nu].set_coeff(0, w[nu]);
 	}
 
 	void step()
 	{
-		/* p(t) <- w + \int_0^t F(s,p(s)) mod s^n ds */
+		/* p_{n+1}(t) <- w + \int_0^t F(s,p_n(s)) mod s^{n+1} ds */
 		REAL t0 = 0;
 		unsigned d = F.dimension();
 		p.resize(n+2);
@@ -2607,7 +2606,8 @@ public:
 
 	virtual void clear()
 	{
-		if (this->release_check()) return;
+		if (this->release_check())
+			return;
 		delete this; 
 	}
 };
@@ -2638,26 +2638,6 @@ inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_auto(
 	return new FUNCTIONAL_ivp_solver_auto<F>(flow, w, iv_is_zero);
 }
 
-
-template <typename T>
-POLYNOMIAL<T> poly(const T &t)
-{
-	return { t };
-}
-
-void test()
-{
-	auto p1 = poly(REAL(0));
-	auto p2 = poly(p1);
-	auto p3 = poly(p2);
-	auto p4 = poly(p3);
-
-	//unsigned d = 5;
-	// POLYNOMIAL_FLOW F(d);
-	//std::vector<POLYNOMIAL2> p = {
-	//	POLYNOMIAL2(d), POLYNOMIAL2(d), POLYNOMIAL2(d), POLYNOMIAL2(d), POLYNOMIAL2(d) };
-	// F(p);
-}
 
 template <typename KP,typename Flow>
 POLYNOMIAL<REAL> picard_iteration_step(

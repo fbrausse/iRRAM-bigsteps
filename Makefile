@@ -11,10 +11,10 @@ include Makefile.paths
 
 PKG_CONFIG      = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config
 
-CFLAGS    = -O2 -Wall -DNDEBUG #-pg #--coverage #-Wextra -pedantic
-CFLAGS   += -Wextra -Wno-unused-parameter
-CXXFLAGS := -std=c++11 $(CFLAGS) -Wno-tautological-compare
-CFLAGS   := -std=c11 $(CFLAGS)
+override CFLAGS   += -O2 -Wall -DNDEBUG -pg #--coverage #-Wextra -pedantic
+override CFLAGS   += -Wextra -Wno-unused-parameter
+override CXXFLAGS := $(CXXFLAGS) -std=c++11 $(CFLAGS) -Wno-tautological-compare
+override CFLAGS   := -std=c11 $(CFLAGS)
 
 EXES      = \
 	ivp \
@@ -22,7 +22,7 @@ EXES      = \
 	nbody \
 
 ivp_OBJS     = ivp.o
-ivp_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib #-pg
+ivp_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib -pg
 ivp_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM # -lgcov
 ivp_CXXFLAGS = -I $(IRRAM)/include #-pg
 
