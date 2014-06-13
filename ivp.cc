@@ -1546,6 +1546,7 @@ static Input read_input()
 	if (!(cin >> final_x)) input_error("<x>");
 
 	if (!(cin >> fname)) input_error("<path/to/coeffs>");
+
 	POLYNOMIAL_FLOW F = read_poly_flow(fname.c_str());
 	std::vector<REAL> w(F.dimension());
 	unsigned i;
@@ -1555,7 +1556,7 @@ static Input read_input()
 		w[i] = parse_REAL(s.c_str());
 	}
 
-	return { p, Smallstep_Control(ssteps.c_str()), delta, eps, final_x, R_scale, read_poly_flow(fname.c_str()), w };
+	return { p, Smallstep_Control(ssteps.c_str()), delta, eps, final_x, R_scale, F, w };
 }
 
 void compute()
