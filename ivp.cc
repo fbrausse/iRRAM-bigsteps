@@ -805,7 +805,8 @@ public:
 		const REAL &delta,
 		const REAL &eps,
 		REAL &R,
-		REAL &M
+		REAL &M, 
+	        const int step_control_alg
 	) const {
 		REAL abs_w(0);
 		for (unsigned j = 0; j < w.size(); j++) {
@@ -815,13 +816,56 @@ public:
 		REAL t = abs(t0) + delta;
 		abs_w = sqrt(abs_w);
 
-		unsigned k = 50;
-		REAL rect_w = scale(eps, -(int)k);
-		REAL total_w = 0;
 		REAL lower_sum = 0;
-		for (unsigned j=0; j<k; j++) {
-			lower_sum += rect_w / f_max(w, total_w += rect_w, t);// f_max(abs_w + (total_w += rect_w));
-			rect_w *= 2;
+		REAL rect_w = eps;
+		
+		switch (step_control_alg) {
+		  case 1: { 
+		    int k = 50;
+		    for (int j=1; j<=k; j++) {
+			lower_sum += 1 / f_max(w, j*eps/k, t);
+		    }
+		    lower_sum *= eps/k;    
+		    break;};
+		  case 2: { 
+		    int k = 20;
+		    for (int j=1; j<=k; j++) {
+			lower_sum += 1 / f_max(w, j*eps/k, t);
+		    }
+		    lower_sum *= eps/k;    
+		    break;};
+		  case 3: { 
+		    int k = 10000;
+		    for (int j=1; j<=k; j++) {
+			lower_sum += 1 / f_max(w, j*eps/k, t);
+		    }
+		    lower_sum *= eps/k;    
+		    break;};
+		  case 4: { 
+		    int k = 5;
+		    for (int j=1; j<=k; j++) {
+			lower_sum += 1 / f_max(w, j*eps/k, t);
+		    }
+		    lower_sum *= eps/k;    
+		    break;};
+		  case 5: {
+		    unsigned k = 20;
+		    for (unsigned j=0; j<k; j++) {
+			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
+			rect_w = 7*rect_w/8;
+		    }
+		    lower_sum /= 8;
+		    lower_sum += rect_w / f_max(w,rect_w, t);
+		    break;};
+		  default: {
+		    unsigned k = 200;
+		    for (unsigned j=0; j<k; j++) {
+			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
+			rect_w = 7*rect_w/8;
+		    }
+		    lower_sum /= 8;
+		    lower_sum += rect_w / f_max(w,rect_w, t);
+		    }
 		}
 
 		R = minimum(delta, lower_sum);
@@ -1555,7 +1599,8 @@ void plot_output(
 	const REAL &delta,
 	const REAL &eps,
 	const REAL &R_scale,
-	const Smallstep_Control &smallsteps
+	const Smallstep_Control &smallsteps,
+	const int step_control_alg
 ) {
 	FUNCTION<unsigned int,std::vector<REAL>> a;
 	FUNCTION<REAL,std::vector<REAL>> taylor;
@@ -1589,9 +1634,9 @@ void plot_output(
 		t.start();
 
 		F.get_RM(w, 0, delta, eps, R, M);
-		F.get_RM2(w, 0, delta, eps, R2, M2);
-		cout << "# (R ,M ) = (" << R << ", " << M << ")\n";
-		cout << "# (R2,M2) = (" << R2 << ", " << M2 << ")\n";
+		F.get_RM2(w, 0, delta, eps, R2, M2, step_control_alg);
+		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
+		cout << "#  "<<current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
 
 		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
 		 *  und  DYADIC_precision(n) */
@@ -1654,7 +1699,7 @@ void plot_output(
 
 		w = taylor(delta_t);
 		for (REAL &wj : w)
-			wj = approx(wj, -24);
+			wj = approx(wj, -53);
 		current_t = current_t + delta_t;
 
 		if (!autonomous && !F.is_autonomous()) {
@@ -1705,8 +1750,8 @@ void compute()
 	std::string ssteps;
 	REAL delta, eps, final_x, alpha, R_scale;
 	std::string fname;
-
-	cout << "# input: p, { small-steps | delta_t_num/delta_t_den }, delta, eps, R-scale, x, fname, w1, ..., wd\n";
+	int step_control_alg;
+	cout << "# input: p, { small-steps | delta_t_num/delta_t_den }, delta, eps, R-scale, x, fname, w1, ..., wd, sc\n";
 	cout << "# fname file format: <d> (<nu> <k> <i1> ... <id>)*\n";
 
 	if (!(cin >> p)) input_error("<p>");
@@ -1725,13 +1770,15 @@ void compute()
 		if (!(cin >> s) || !s.length()) input_error("<iv%d>");
 		w[i] = parse_REAL(s.c_str());
 	}
+	if (!(cin >>  step_control_alg)) input_error("<step control parameter>");
 
 	cout << setRwidth(p);
 
 	print_iterator(F);
 
 	if (F.is_autonomous())
-		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()),step_control_alg);
 	else
-		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()));
+		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()),step_control_alg);
 }
+
