@@ -1480,8 +1480,8 @@ void plot_output(const Input &in)
 			}
 		}
 
-		/*
 		w = taylor(delta_t);
+		/*
 		for (REAL &wj : w)
 			wj = approx(wj, -24);*/
 		current_t = current_t + delta_t;
