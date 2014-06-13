@@ -329,6 +329,18 @@ public:
 		return b;
 	}
 
+	friend POLYNOMIAL mul_imod(const POLYNOMIAL &a, const POLYNOMIAL &b, unsigned mod_degree)
+	{
+		std::vector<K> r(std::min(mod_degree, degree() + b.degree() + 1));
+		unsigned amin = std::min(mod_degree, a.degree()+1);
+		for (unsigned i=0; i<amin; i++) {
+			unsigned bmin = std::min(mod_degree-i, b.degree()+1);
+			for (unsigned j=0; j<bmin; j++)
+				r[i+j] += a[i] * b[j];
+		}
+		return POLYNOMIAL(r);
+	}
+
 	friend POLYNOMIAL imod(const POLYNOMIAL &p, unsigned degree)
 	{
 		if (degree > p.degree())
