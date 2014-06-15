@@ -1517,9 +1517,15 @@ static const char usage[] =
 "  iv*             initial values at t=0\n"
 ;
 
-static void input_error(const char *which)
+__attribute__((format(printf,1,2)))
+static void input_error(const char *which, ...)
 {
-	die(1, "input error: %s invalid\n\n%s", which, usage);
+	va_list ap;
+	va_start(ap, which);
+	fprintf(stderr, "input error: ");
+	vfprintf(stderr, which, ap);
+	va_end(ap);
+	die(1, " invalid\n\n%s", usage);
 }
 
 static Input read_input()
@@ -1546,7 +1552,7 @@ static Input read_input()
 	unsigned i;
 	for (i=0; i<F.dimension(); i++) {
 		std::string s;
-		if (!(cin >> s) || !s.length()) input_error("<iv%d>");
+		if (!(cin >> s) || !s.length()) input_error("<iv%d>", i);
 		w[i] = parse_REAL(s.c_str());
 	}
 
