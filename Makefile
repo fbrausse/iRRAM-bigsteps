@@ -68,7 +68,7 @@ endef
 
 .PHONY: all clean
 
-all: ivp #$(EXES)
+all: ivp $(EXES)
 
 $(foreach exe,$(EXES),$(eval $(call EXE_template,$(exe))))
 
