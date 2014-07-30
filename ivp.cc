@@ -1493,6 +1493,7 @@ void plot_output(const Input &in)
 	cout << "# no. bigsteps: " << bigsteps << ", " << (t.t / 1e3) << "ms   \n";
 }
 
+__attribute__((format(printf,2,3)))
 static void die(int exitval, const char *fmt, ...)
 {
 	va_list ap;

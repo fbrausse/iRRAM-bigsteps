@@ -37,7 +37,7 @@
 #define EVENT_LOOP_SLEEP	500		/* micro seconds */
 //#define TRAIL_QUANT_STEPS	256
 //#define TRAIL_METHOD		TRAIL_MESHED
-#define TRAIL_MAX_SEGMENTS	2000
+#define TRAIL_MAX_SEGMENTS	20000
 #define TRAIL_MAX_DIST		4.5		/* px */
 #define GAMMA			2.2
 #define AUTO_ZOOM_FRAME_BORDER	20
@@ -90,6 +90,15 @@
 # define M_PI			atan2(+0.0, -0.0)
 #endif
 
+struct input {
+	struct ring_buf buf;
+	struct ring_buf line;
+	const unsigned *field_ids;
+	unsigned n_fields;
+	int fd;
+};
+#define INPUT_INIT	{ RING_BUF_INIT, RING_BUF_INIT, NULL, 0, -1 }
+
 static int parse_record(
 	const char *line, unsigned n_fields, const unsigned *field_ids,
 	double *values
@@ -125,14 +134,13 @@ static int parse_record(
 	return 1;
 }
 
-static int read_record(
-	int fd, struct ring_buf *buf, struct ring_buf *line,
-	unsigned n_fields, const unsigned *field_ids,
-	double *values
-) {
+static int read_record(struct input *in, double *values)
+{
+	struct ring_buf *buf = &in->buf;
+	struct ring_buf *line = &in->line;
 	size_t newline = 0;
 
-	if (rb_read(buf, fd) == -1 && errno != EAGAIN)
+	if (rb_read(buf, in->fd) == -1 && errno != EAGAIN)
 		return -1;
 
 	while (1) {
@@ -142,7 +150,7 @@ static int read_record(
 #if 1
 			newline = rb_ptrdiff(buf, q);
 #else
-			size_t p = q - buf->buf;
+			size_t p = q - in->buf.buf;
 			newline = p >= buf->idx ? p - buf->idx
 			                        : buf->sz + p - buf->idx;
 #endif
@@ -159,7 +167,7 @@ static int read_record(
 			rb_putc(line, '\0');
 			rb_getc(buf); /* eat '\n' (if available) */
 			/* fprintf(stderr, "'%s'\n", line->buf); */
-			if (!parse_record(line->buf, n_fields, field_ids, values))
+			if (!parse_record(line->buf, in->n_fields, in->field_ids, values))
 				return 1;
 			newline = 0;
 			if (buf->valid)
@@ -171,7 +179,7 @@ static int read_record(
 			                  ? INPUT_BUFFER_RESERVE
 			                  : 2 * buf->sz);
 
-		rd = rb_read(buf, fd);/*
+		rd = rb_read(buf, in->fd);/*
 		fprintf(stderr,
 			"buf after read %zd: idx: %zu, valid: %zu, sz: %zu, "
 			"newline: %zu\n",
@@ -1077,13 +1085,11 @@ static void center_view3(
 }
 
 static void process_interactively(
-	int fd, unsigned n_fields, const unsigned *field_ids, struct frame *f,
+	struct input *in, struct frame *f,
 	cairo_matrix_t *pt2view, struct at *time_scale,
 	double trail_fade_t, double display_rate, int auto_zoom
 ) {
 	struct zoom_control_state zctl;
-	struct ring_buf buf;
-	struct ring_buf rb;
 
 	/* init video output */
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE) < 0) {
@@ -1104,9 +1110,7 @@ static void process_interactively(
 	gettimeofday(&tv, NULL);
 	double exec_last_t = tv.tv_sec + tv.tv_usec / 1e6;
 
-	double values[n_fields];
-	memset(&buf, 0, sizeof(buf));
-	memset(&rb, 0, sizeof(rb));
+	double values[in->n_fields];
 
 	double t = -INFINITY;
 	int need_new_record = 1;
@@ -1122,7 +1126,7 @@ static void process_interactively(
 		while (SDL_PollEvent(&ev))
 			if (process_event(&ev, f, pt2view, t, time_scale, &auto_zoom) & EV_QUIT)
 				goto done;
-		switch (read_record(fd, &rb, &buf, n_fields, field_ids, values)) {
+		switch (read_record(in, values)) {
 		case -1: goto done;
 		case  0: continue;
 		case  1: goto event_loop;
@@ -1142,10 +1146,10 @@ event_loop:
 			goto done;
 		if (ev_mask & EV_REPAINT) {
 			if (auto_zoom)
-				center_view3(pt2view, values+1, n_fields/2,
+				center_view3(pt2view, values+1, in->n_fields/2,
 				             &zctl, 0, q.head, f); /* TODO: dt */
-			paint_frame(f, pt2view, n_fields, values, rec, &q,
-			            trail_fade_t, (double)rb.valid / rb.sz,
+			paint_frame(f, pt2view, in->n_fields, values, rec, &q,
+			            trail_fade_t, (double)in->buf.valid / in->buf.sz,
 			            exec_delta_t, nrec);
 			sdl_update_display(f);
 			continue;
@@ -1189,12 +1193,12 @@ event_loop:
 			/* redraw image */
 			if (!q.tail ||
 			    TRAIL_MAX_SEGMENTS * (values[0] - q.tail->t) >= trail_fade_t)
-				pos_queue_update(&q, n_fields, values, trail_fade_t);
+				pos_queue_update(&q, in->n_fields, values, trail_fade_t);
 			if (auto_zoom)
-				center_view3(pt2view, values+1, n_fields/2,
+				center_view3(pt2view, values+1, in->n_fields/2,
 				             &zctl, 0, q.head, f); /* TODO: dt: exec_delta_t? */
-			paint_frame(f, pt2view, n_fields, values, rec, &q,
-			            trail_fade_t, (double)rb.valid / rb.sz,
+			paint_frame(f, pt2view, in->n_fields, values, rec, &q,
+			            trail_fade_t, (double)in->buf.valid / in->buf.sz,
 			            exec_delta_t, nrec);
 			sdl_update_display(f);
 			need_new_record = 1;
@@ -1209,12 +1213,11 @@ event_loop:
 		struct timeval delay_until = tv;
 		tv_addi(&delay_until, 0, delay ? EVENT_LOOP_SLEEP : 0);
 		if (need_new_record) {
-			double tmp_values[n_fields];
+			double tmp_values[in->n_fields];
 			nrec = 1;
 			while (1) {
 				int ret;
-				ret = read_record(fd, &rb, &buf, n_fields,
-				                  field_ids, tmp_values);
+				ret = read_record(in, tmp_values);
 				if (ret == -1)
 					goto done;
 				if (ret == 1) {
@@ -1224,12 +1227,12 @@ event_loop:
 				}
 				fd_set fds;
 				FD_ZERO(&fds);
-				FD_SET(fd, &fds);
+				FD_SET(in->fd, &fds);
 				struct timeval timeout = delay_until;
 				gettimeofday(&tv, NULL);
 				tv_sub(&timeout, &tv);
 				if (tv_test(&timeout) <= 0 || 
-				    !select(fd+1, &fds, NULL, NULL, &timeout)) {
+				    !select(in->fd+1, &fds, NULL, NULL, &timeout)) {
 					nrec = 0;
 					break;
 				}
@@ -1256,20 +1259,19 @@ event_loop:
 
 #else
 		if (need_new_record) {
-			double tmp_values[n_fields];
+			double tmp_values[in->n_fields];
 			while (1) {
 				int ret;
-				ret = read_record(fd, &rb, &buf, n_fields,
-				                  field_ids, tmp_values);
+				ret = read_record(in, tmp_values);
 				if (ret == -1)
 					goto done;
 				if (ret == 1)
 					break;
 				fd_set fds;
 				FD_ZERO(&fds);
-				FD_SET(fd, &fds);
+				FD_SET(in->fd, &fds);
 				struct timeval timeout = {0, EVENT_LOOP_SLEEP};
-				if (!select(fd+1, &fds, NULL, NULL, &timeout))
+				if (!select(in->fd+1, &fds, NULL, NULL, &timeout))
 					goto event_loop;
 			}
 			rec++;
@@ -1315,9 +1317,6 @@ event_loop:
 #endif
 	}
 done:
-	free(buf.buf);
-	free(rb.buf);
-
 	SDL_Quit();
 }
 
@@ -1397,14 +1396,11 @@ static void rgb2yuv(
 }
 
 static void process_noninteractively(
-	int ifd, FILE *fofd, const enum output_mode omode, unsigned n_fields,
-	const unsigned *field_ids, struct frame *f, cairo_matrix_t *pt2view,
-	struct at *time_scale, double trail_fade_t, double display_rate,
-	int auto_zoom
+	struct input *in, FILE *fofd, const enum output_mode omode,
+	struct frame *f, cairo_matrix_t *pt2view, struct at *time_scale,
+	double trail_fade_t, double display_rate, int auto_zoom
 ) {
-	struct ring_buf rb = RING_BUF_INIT;
-	struct ring_buf scratch = RING_BUF_INIT;
-	double values[2][n_fields];
+	double values[2][in->n_fields];
 
 	unsigned long rec, frame_nr = 0;
 	unsigned s, x, y;
@@ -1443,13 +1439,12 @@ static void process_noninteractively(
 	}
 
 	while (1) {
-		switch (read_record(ifd, &rb, &scratch, n_fields, field_ids,
-		                    values[0])) {
+		switch (read_record(in, values[0])) {
 		case -1: goto done;
 		case  0:
 			FD_ZERO(&fds);
-			FD_SET(ifd, &fds);
-			if (select(ifd+1, &fds, NULL, NULL, NULL) == -1) {
+			FD_SET(in->fd, &fds);
+			if (select(in->fd+1, &fds, NULL, NULL, NULL) == -1) {
 				perror("select");
 				goto done;
 			}
@@ -1461,13 +1456,12 @@ static void process_noninteractively(
 	for (rec=1;;) {
 		double *cur_values = values[~rec&1];
 		double *next_values = values[rec&1];
-		switch (read_record(ifd, &rb, &scratch, n_fields, field_ids,
-		                    next_values)) {
+		switch (read_record(in, next_values)) {
 		case -1: goto done;
 		case  0:
 			FD_ZERO(&fds);
-			FD_SET(ifd, &fds);
-			if (select(ifd+1, &fds, NULL, NULL, NULL) == -1) {
+			FD_SET(in->fd, &fds);
+			if (select(in->fd+1, &fds, NULL, NULL, NULL) == -1) {
 				perror("select");
 				goto done;
 			}
@@ -1482,10 +1476,10 @@ static void process_noninteractively(
 		double next_t = affine_transform(time_scale, next_values[0]);
 		if (next_t < frame_t) {
 			if (!q.tail) {
-				pos_queue_update(&q, n_fields, next_values, trail_fade_t);
+				pos_queue_update(&q, in->n_fields, next_values, trail_fade_t);
 			} else {
 				unsigned i;
-				for (i=0; i<n_fields/2; i++) {
+				for (i=0; i<in->n_fields/2; i++) {
 					struct pt p = q.tail->pts[i];
 					struct pt r = {
 						next_values[1+i+i+0],
@@ -1494,7 +1488,7 @@ static void process_noninteractively(
 					pt_sub(&r, &p);
 					cairo_matrix_transform_distance(pt2view, &r.x, &r.y);
 					if (pt_norm_square(&r) >= TRAIL_MAX_DIST * TRAIL_MAX_DIST) {
-						pos_queue_update(&q, n_fields, next_values, trail_fade_t);
+						pos_queue_update(&q, in->n_fields, next_values, trail_fade_t);
 						break;
 					}
 				}
@@ -1513,7 +1507,7 @@ static void process_noninteractively(
 		int queue_updated = 0;
 		if (!q.tail ||
 		    TRAIL_MAX_SEGMENTS * (nearest_values[0] - q.tail->t) >= trail_fade_t) {
-			pos_queue_update(&q, n_fields, nearest_values, trail_fade_t);
+			pos_queue_update(&q, in->n_fields, nearest_values, trail_fade_t);
 			queue_updated = 1;
 		}
 
@@ -1525,13 +1519,13 @@ static void process_noninteractively(
 			trail_min_t = affine_inverse_transform(time_scale, nearest_t - 30);
 			for (; it && it->t < trail_min_t; it = it->next)
 #endif
-			center_view3(pt2view, nearest_values+1, n_fields/2,
+			center_view3(pt2view, nearest_values+1, in->n_fields/2,
 			             &zctl, display_rate, it, f);
 		}
 
 		if (!queue_updated) {
 			unsigned i;
-			for (i=0; i<n_fields/2; i++) {
+			for (i=0; i<in->n_fields/2; i++) {
 				struct pt p = q.tail->pts[i];
 				struct pt r = {
 					next_values[1+i+i+0],
@@ -1540,7 +1534,7 @@ static void process_noninteractively(
 				pt_sub(&r, &p);
 				cairo_matrix_transform_distance(pt2view, &r.x, &r.y);
 				if (pt_norm_square(&r) >= TRAIL_MAX_DIST * TRAIL_MAX_DIST) {
-					pos_queue_update(&q, n_fields, next_values, trail_fade_t);
+					pos_queue_update(&q, in->n_fields, next_values, trail_fade_t);
 					break;
 				}
 			}
@@ -1549,8 +1543,8 @@ static void process_noninteractively(
 		fprintf(stderr, "frame: %lu, rec: %lu, t: %.06e, dmin: (%+5.3e:%+5.3e), dmax: (%+5.3e:%+5.3e) \n",
 			frame_nr, rec, cur_values[0], zctl.x0[1], zctl.y0[1], zctl.x1[1], zctl.y1[1]);
 
-		paint_frame(f, pt2view, n_fields, nearest_values, rec, &q,
-		            trail_fade_t, (double)rb.valid / rb.sz, 0.0, 1);
+		paint_frame(f, pt2view, in->n_fields, nearest_values, rec, &q,
+		            trail_fade_t, (double)in->buf.valid / in->buf.sz, 0.0, 1);
 
 		data = cairo_image_surface_get_data(f->sf);
 		s = cairo_image_surface_get_stride(f->sf);
@@ -1617,8 +1611,6 @@ static void process_noninteractively(
 		frame_nr++;
 	}
 done:
-	free(scratch.buf);
-	free(rb.buf);
 	free(img);
 }
 
@@ -1637,6 +1629,7 @@ int main(int argc, char **argv)
 	int auto_zoom = 0;
 	FILE *fofd = stdout;
 	enum output_mode omode;
+	int sample_dimension = 2;
 
 	omode = SDL;
 
@@ -1653,13 +1646,14 @@ int main(int argc, char **argv)
 
 	/* option parsing */
 	int opt;
-	while ((opt = getopt(argc, argv, ":ac:d:f:hi:n:r:s:t:z:")) != -1)
+	while ((opt = getopt(argc, argv, ":ac:d:f:hi:n:p:P:r:s:t:z:")) != -1)
 		switch (opt) {
 		case 'a': auto_zoom = 1; break;
 		case 'c':
 			center.x = atof(strtok(optarg, ":"));
 			center.y = atof(strtok(NULL, ""));
 			break;
+		case 'D': sample_dimension = atoi(optarg); break;
 		case 'd':
 			f.w = atoi(strtok(optarg, "x"));
 			f.h = atoi(strtok(NULL, ""));
@@ -1682,6 +1676,8 @@ int main(int argc, char **argv)
 				"invalid parameter '%s' for option '-n'\n",
 				optarg);
 			exit(1);
+		case 'P':
+		case 'p':
 		case 'r': display_rate = atof(optarg); break;
 		case 's': time_scale.s = atof(optarg); break;
 		case 't': time_scale.x0 = atof(optarg); break;
@@ -1691,7 +1687,7 @@ int main(int argc, char **argv)
 				optopt);
 			exit(1);
 		case '?':
-			fprintf(stderr, "unknown option '-%c'\n", optopt);
+			fprintf(stderr, "unknown option '-%c', param '%s'\n", optopt, argv[optind]);
 			exit(1);
 		}
 	if (optind != argc-1) {
@@ -1701,11 +1697,15 @@ fprintf(stderr, "\n");
 fprintf(stderr, "Options [defaults in brackets]:\n");
 fprintf(stderr, "  -a                      auto-center and -scale view (best used with '-f') [%d]\n", auto_zoom);
 fprintf(stderr, "  -c <center-x:center-y>  initial center of view in input units [%g:%g]\n", center.x, center.y);
+fprintf(stderr, "  -D <dim>                input sample dimension d (also see '-p', '-P') [%d]\n", sample_dimension);
 fprintf(stderr, "  -d <WxH>                initial image dimension in px [%ux%u]\n", f.w, f.h);
 fprintf(stderr, "  -f <trail-fade-time>    enable trail of given duration in input time [%g]\n", trail_fade_t);
 fprintf(stderr, "  -h                      display this help message\n");
 fprintf(stderr, "  -i <input.dat>          use given file as input [stdin]\n");
 fprintf(stderr, "  -n { ppm | y4m }        no GUI, write frames as PPM/Y4M-stream on stdout [%s]\n", omode_ids[omode]);
+fprintf(stderr, "  -p <a00:a01:...:a1D>    specify constant projection matrix (for D != 2) [I]\n");
+fprintf(stderr, "  -P <path/to/proj/pipe>  file responding to text line containing time t with a\n"
+                "                          projection matrix in the format of '-p'\n");
 fprintf(stderr, "  -r <display-rate>       update display with max. given Hz / frame-rate [%g]\n", display_rate);
 fprintf(stderr, "  -s <time-scale>         scale input timestamps by given factor [%g]\n", time_scale.s);
 fprintf(stderr, "  -t <time-offset>        offset input timestamps by given value [%g]\n", time_scale.x0);
@@ -1754,19 +1754,25 @@ fprintf(stderr, "Author: Franz Brauße <mail@franz-brausse.de>, license: GPLv2.\
 	cairo_matrix_scale(&pt2view, zoom, zoom);
 	cairo_matrix_translate(&pt2view, -center.x, -center.y);
 
+	struct input in = INPUT_INIT;
+	in.fd = fd;
+	in.n_fields = n_fields;
+	in.field_ids = field_ids;
+
 	switch (omode) {
 	case SDL:
-		process_interactively(fd, n_fields, field_ids, &f, &pt2view,
-		                      &time_scale, trail_fade_t, display_rate,
-		                      auto_zoom);
+		process_interactively(&in, &f, &pt2view, &time_scale,
+		                      trail_fade_t, display_rate, auto_zoom);
 		break;
 	case PPM:
 	case Y4M:
-		process_noninteractively(fd, fofd, omode, n_fields, field_ids,
-		                         &f, &pt2view, &time_scale,
-		                         trail_fade_t, display_rate, auto_zoom);
+		process_noninteractively(&in, fofd, omode, &f, &pt2view,
+		                         &time_scale, trail_fade_t,
+		                         display_rate, auto_zoom);
 		break;
 	}
+	free(in.buf.buf);
+	free(in.line.buf);
 	close(fd);
 	fclose(fofd);
 
