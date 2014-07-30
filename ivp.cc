@@ -62,13 +62,13 @@ class FUNCTIONAL_taylor_sum :public FUNCTIONAL_object<REAL,REAL> {
 /***********************************************************/
 /* local data: coefficients (as a function),  radius and corresponding bound */
 
-	FUNCTION<unsigned int,REAL> _coeff;
+	FUNCTION<REAL,unsigned int> _coeff;
 	REAL _radius;
 	REAL _bound;
 
 public:
 	FUNCTIONAL_taylor_sum(
-			FUNCTION<unsigned int,REAL> coeff,
+			FUNCTION<REAL,unsigned int> coeff,
 			const REAL& radius,
 			const REAL& bound
 	) {
@@ -134,7 +134,7 @@ public:
 /* corresponding constructor for FUNCTION		*/
 /********************************************************/
 inline FUNCTION<REAL,REAL> taylor_sum (
-		FUNCTION<unsigned int,REAL> coeff,
+		FUNCTION<REAL,unsigned int> coeff,
 		const REAL& radius,
 		const REAL& bound
 ) {
@@ -146,7 +146,7 @@ inline FUNCTION<REAL,REAL> taylor_sum (
 // 'bound' must be valid for 'radius' in each dimension
 //********************************************************************************
 
-class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<REAL,std::vector<REAL> > {
+class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<std::vector<REAL>,REAL > {
 	virtual void clear()
 	{
 		if (this->release_check()) return;
@@ -155,11 +155,11 @@ class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<REAL,std::vector<RE
 
 	REAL _radius;
 	REAL _bound;
-	FUNCTION<unsigned int,std::vector<REAL> > _coeff;
+	FUNCTION<std::vector<REAL>,unsigned int > _coeff;
 
 public:
 	FUNCTIONAL_vector_taylor_sum(
-			FUNCTION<unsigned int,std::vector<REAL> > coeff,
+			FUNCTION<std::vector<REAL>,unsigned int > coeff,
 			const REAL& radius,
 			const REAL& bound
 	) {
@@ -172,7 +172,7 @@ public:
 	{
 		std::vector<REAL> result=_coeff(0); // just to get the dimension
 		for (unsigned int nu=0;nu<result.size();nu++){
-			FUNCTION<unsigned int,REAL>  coeff_nu=projection(_coeff,nu);
+			FUNCTION<REAL,unsigned int>  coeff_nu=projection(_coeff,nu);
 			FUNCTION<REAL,REAL> f_nu=taylor_sum(coeff_nu,_radius,_bound);
 			result[nu]=f_nu(t);
 		}
@@ -183,8 +183,8 @@ public:
 /********************************************************/
 /* corresponding constructor for FUNCTION		*/
 /********************************************************/
-inline FUNCTION<REAL,std::vector<REAL> > taylor_sum (
-		FUNCTION<unsigned int,std::vector<REAL> > coeff,
+inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
+		FUNCTION<std::vector<REAL>,unsigned int > coeff,
 		const REAL& radius,
 		const REAL& maximum
 ) {
@@ -729,7 +729,7 @@ struct Timer {
 
 
 template <typename F>
-class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<unsigned int,std::vector<REAL> >
+class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<std::vector<REAL>,unsigned int >
 {
 	F _flow;
 
@@ -1073,7 +1073,7 @@ struct F_REAL {
 };
 
 template <typename F>
-class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<unsigned int,std::vector<REAL> > {
+class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<REAL>,unsigned int > {
 public:
 	const F _flow;
 	std::vector< std::vector< std::vector<F_REAL> > > _a;
@@ -1234,7 +1234,7 @@ public:
 	}
 };
 
-class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<unsigned int,std::vector<REAL>> {
+class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<std::vector<REAL>,unsigned int> {
 public:
 	const POLYNOMIAL_FLOW F;
 	/* p[n][nu] */
@@ -1302,7 +1302,7 @@ public:
 };
 
 template <typename F>
-inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_recursive(
+inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_recursive(
 	const F &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1310,7 +1310,7 @@ inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_recursive(
 	return new FUNCTIONAL_IVP_SOLVER_RECURSIVE<F>(flow, w, iv_is_zero);
 }
 
-inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_picard(
+inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_picard(
 	const POLYNOMIAL_FLOW &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1319,7 +1319,7 @@ inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_picard(
 }
 
 template <typename F>
-inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_auto(
+inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_auto(
 	const F &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1376,8 +1376,8 @@ struct Input {
 template <bool autonomous,bool picard>
 void plot_output(const Input &in)
 {
-	FUNCTION<unsigned int,std::vector<REAL>> a;
-	FUNCTION<REAL,std::vector<REAL>> taylor;
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+	FUNCTION<std::vector<REAL>,REAL> taylor;
 
 	const int cmp_p = -10;
 	const int delta_t_p = -53;
