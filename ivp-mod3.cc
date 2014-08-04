@@ -52,17 +52,23 @@ REAL abs(const std::vector<REAL>& x)
 /****************************************************************************************/
 
 class FUNCTIONAL_taylor_sum :public FUNCTIONAL_object<REAL,REAL> {
+	virtual void clear()
+	{
+		if (this->release_check())
+			return;
+		delete this; 
+	}
 
 /***********************************************************/
 /* local data: coefficients (as a function),  radius and corresponding bound */
 
-	FUNCTION<REAL,unsigned int> _coeff;
+	FUNCTION<unsigned int,REAL> _coeff;
 	REAL _radius;
 	REAL _bound;
 
 public:
 	FUNCTIONAL_taylor_sum(
-			FUNCTION<REAL,unsigned int> coeff,
+			FUNCTION<unsigned int,REAL> coeff,
 			const REAL& radius,
 			const REAL& bound
 	) {
@@ -70,8 +76,6 @@ public:
 		_radius=radius;
 		_bound=bound;
 	}
-
-	~FUNCTIONAL_taylor_sum() {}
 
 /****************************************************************************************/
 /* Evaluation:										*/
@@ -130,11 +134,11 @@ public:
 /* corresponding constructor for FUNCTION		*/
 /********************************************************/
 inline FUNCTION<REAL,REAL> taylor_sum (
-		FUNCTION<REAL,unsigned int> coeff,
+		FUNCTION<unsigned int,REAL> coeff,
 		const REAL& radius,
 		const REAL& bound
 ) {
-	return new FUNCTIONAL_taylor_sum(coeff,radius,bound);
+	return new FUNCTIONAL_taylor_sum (coeff,radius,bound);
 }
 
 //********************************************************************************
@@ -142,15 +146,20 @@ inline FUNCTION<REAL,REAL> taylor_sum (
 // 'bound' must be valid for 'radius' in each dimension
 //********************************************************************************
 
-class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<std::vector<REAL>,REAL > {
+class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<REAL,std::vector<REAL> > {
+	virtual void clear()
+	{
+		if (this->release_check()) return;
+		delete this; 
+	}
 
 	REAL _radius;
 	REAL _bound;
-	FUNCTION<std::vector<REAL>,unsigned int > _coeff;
+	FUNCTION<unsigned int,std::vector<REAL> > _coeff;
 
 public:
 	FUNCTIONAL_vector_taylor_sum(
-			FUNCTION<std::vector<REAL>,unsigned int > coeff,
+			FUNCTION<unsigned int,std::vector<REAL> > coeff,
 			const REAL& radius,
 			const REAL& bound
 	) {
@@ -159,13 +168,11 @@ public:
 		_bound=bound;
 	}
 
-	~FUNCTIONAL_vector_taylor_sum() {}
-
 	std::vector<REAL> eval(const REAL& t)
 	{
 		std::vector<REAL> result=_coeff(0); // just to get the dimension
 		for (unsigned int nu=0;nu<result.size();nu++){
-			FUNCTION<REAL,unsigned int>  coeff_nu=projection(_coeff,nu);
+			FUNCTION<unsigned int,REAL>  coeff_nu=projection(_coeff,nu);
 			FUNCTION<REAL,REAL> f_nu=taylor_sum(coeff_nu,_radius,_bound);
 			result[nu]=f_nu(t);
 		}
@@ -176,8 +183,8 @@ public:
 /********************************************************/
 /* corresponding constructor for FUNCTION		*/
 /********************************************************/
-inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
-		FUNCTION<std::vector<REAL>,unsigned int > coeff,
+inline FUNCTION<REAL,std::vector<REAL> > taylor_sum (
+		FUNCTION<unsigned int,std::vector<REAL> > coeff,
 		const REAL& radius,
 		const REAL& maximum
 ) {
@@ -186,6 +193,182 @@ inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
 
 //********************************************************************************
 //********************************************************************************
+
+class FLOW {
+	public:
+//local data:
+	unsigned int _dimension;
+	vector< vector<REAL> > _coeff;
+	REAL _coeff_linear_bound;
+	REAL _coeff_const_bound;
+
+
+//information on the state space of the flow
+	unsigned int dimension(){return _dimension;};
+
+// default constructor, empty system
+	FLOW()
+	{
+		_dimension=0;
+		_coeff_linear_bound=0;
+		_coeff_const_bound=0;
+	}
+
+// trivial constructor, here only for linear systems
+	FLOW(const vector< vector<REAL> > coeff)
+	{
+		cout << "# This is a prototypical implementation of flows!\n";
+		_dimension=coeff.size();
+		_coeff=coeff;
+
+		for (unsigned int nu=0;nu<_dimension;nu++)
+			for (unsigned int j=1;j<_dimension+1;j++)
+				_coeff_linear_bound = maximum(_coeff_linear_bound,abs(coeff[nu][j]));
+
+		for (unsigned int nu=0;nu<_dimension;nu++)
+			_coeff_const_bound = maximum(_coeff_const_bound,abs(coeff[nu][0]));
+	}
+
+// bound function, simplified algorithm!
+	REAL bound_of_flow(const std::vector<REAL> x,const REAL& radius){
+		return abs(x)+_coeff_const_bound+radius*_coeff_linear_bound;
+	}
+	REAL bound_of_solution(const std::vector<REAL> x,const REAL& radius){
+		return radius * (abs(x) + _coeff_const_bound)
+				+ exp( abs(x)+radius * _coeff_linear_bound);
+	}
+
+	REAL coeff(unsigned int i, unsigned int j){
+		return _coeff[i][j];
+	}
+};
+
+class FUNCTIONAL_ivp_solver_simple :public FUNCTIONAL_object<unsigned int,std::vector<REAL> > 
+{
+public:
+/***********************************************************/
+/* local data: flow "function" */
+
+	FLOW _flow;
+
+/* The vector taylorpower[nu][i] contains an initial segment of the Taylor coefficients
+   for (y_nu)^i.
+   As soon as taylor[nu][i][1] is computed, we will also compute 
+   taylorpower[nu][j][i] for as many values i (<=j) as needed by the flow.
+*/
+	std::vector< std::vector< std::vector<REAL> > >taylorpower;
+
+	unsigned int _dimension;
+
+/***********************************************************/
+/* trivialer Objekt-Konstruktor: 
+   es werden nur die Daten kopiert
+*/
+	FUNCTIONAL_ivp_solver_simple(
+			const std::vector<REAL> & x0,
+			const FLOW & flow
+	) {
+		_flow=flow;
+		_dimension=_flow.dimension();
+
+/* kopiere den Startwert x0 in die Tayloreihen als jeweils 0-te Koeffizienten bei Potenz 1*/ 
+		taylorpower.resize(_dimension);
+		for (unsigned int nu=0;nu<_dimension;nu++){
+			taylorpower[nu].resize(2);
+			taylorpower[nu][0].resize(1);
+			taylorpower[nu][0][0]=REAL(1);
+			taylorpower[nu][1].resize(1);
+			taylorpower[nu][1][0]=x0[nu];
+		}
+
+	}
+
+	/* (3.13) */
+	REAL simple_IVP(unsigned int nu,int l)
+	{
+		REAL sum=REAL(0);
+		for (unsigned int j=0;j<_dimension;j++){
+			sum += _flow.coeff(nu,j+1)*taylorpower[j][1][l];
+		}
+		if (l==0) return sum+_flow.coeff(nu,0);
+		return sum /(l+1);
+	}
+
+
+/*****************************************************************/
+/* Auswertungsfunktion: Taylorreihe in jeder Dimension bestimmen */
+/* Werte werden dabei zwischengespeichert                        */
+/*****************************************************************/
+
+	std::vector<REAL>  eval(const unsigned int& n)
+	{
+/* determine Taylor coefficients up to index n (inclusive) */
+
+/* for the simple linear systems we do not need higher powers... */
+/* in the general case we would have max_power=n*/
+		unsigned int max_power=1; 
+
+		unsigned int l_old=taylorpower[0][0].size();
+
+/* increase the space used to store the  coefficients and their powers*/
+		for (unsigned int nu=0;nu<_dimension;nu++){
+			taylorpower[nu].resize(max_power+1);
+			for (unsigned int l=0;l<=max_power;l++){
+				taylorpower[nu][l].resize(n+1);
+			}
+		}
+
+/* first determine the coefficients for exponent 1, then later the higher powers */
+		for (unsigned int l=l_old;l<=n;l++){
+			for (unsigned int nu=0;nu<_dimension;nu++){
+/* for power 0: we only need to append with sufficiently many zeroes */
+				taylorpower[nu][0][l]=REAL(0);
+/* for power 1: we have to compute the values explicitly using a recursive scheme */
+/*        the case l=0 has already been treated in the constructor */
+ 				if (l>0) taylorpower[nu][1][l]=simple_IVP(nu,l-1);
+
+/* for powers >1: the values are determined using folding*/
+				for (unsigned int m=2;m<=max_power;m++){
+					unsigned int n0=0;
+					if (m<l)
+						n0=l;
+					for (unsigned int n1=n0;n1<=l;n1++){
+						REAL sum;
+						for (unsigned int j=0;j<=n1;j++){
+							sum = sum + (taylorpower[nu][1][j] *
+							             taylorpower[nu][m-1][n1-j]);
+						}
+						taylorpower[nu][m][n1]=sum;
+					}
+				}
+			}
+		}
+		std::vector<REAL> result(_dimension);
+		for (unsigned int nu=0;nu<_dimension;nu++){
+			result[nu]=taylorpower[nu][1][n];
+		}
+		return result;
+ 	}
+
+	virtual void clear()
+	{
+		if (this->release_check()) return;
+		delete this; 
+	}
+};
+
+/*****************************************************/
+/* FUNCTION - constructor for "ivp_solver_simple"    */
+/*****************************************************/
+
+inline FUNCTION<unsigned int,std::vector<REAL> > ivp_solver_simple (
+	const std::vector<REAL> & x0,
+	const FLOW & flow 
+) {
+	return new FUNCTIONAL_ivp_solver_simple (x0,flow);
+}
+
+
 
 
 template <typename K>
@@ -320,18 +503,6 @@ public:
 		for (unsigned i=1; i<c.size(); i++)
 			b.c[i-1] = c[i] * (int)i;
 		return b;
-	}
-
-	friend POLYNOMIAL mul_imod(const POLYNOMIAL &a, const POLYNOMIAL &b, unsigned mod_degree)
-	{
-		std::vector<K> r(std::min(mod_degree, degree() + b.degree() + 1));
-		unsigned amin = std::min(mod_degree, a.degree()+1);
-		for (unsigned i=0; i<amin; i++) {
-			unsigned bmin = std::min(mod_degree-i, b.degree()+1);
-			for (unsigned j=0; j<bmin; j++)
-				r[i+j] += a[i] * b[j];
-		}
-		return POLYNOMIAL(r);
 	}
 
 	friend POLYNOMIAL imod(const POLYNOMIAL &p, unsigned degree)
@@ -632,11 +803,12 @@ public:
 		std::vector<REAL> w,
 		const REAL &t0,
 		const REAL &delta,
-		const REAL &eps,
+		REAL &eps,
 		REAL &R,
 		REAL &M, 
 	        const int step_control_alg
 	) const {
+//		stiff area(-ACTUAL_STACK.prec_step/2);
 		REAL abs_w(0);
 		for (unsigned j = 0; j < w.size(); j++) {
 			abs_w += square(w[j]);
@@ -647,58 +819,48 @@ public:
 
 		REAL lower_sum = 0;
 		REAL rect_w = eps;
-		
-		switch (step_control_alg) {
-		  case 1: { 
-		    int k = 50;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 2: { 
-		    int k = 20;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 3: { 
-		    int k = 10000;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 4: { 
-		    int k = 5;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 5: {
-		    unsigned k = 20;
-		    for (unsigned j=0; j<k; j++) {
-			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
-			rect_w = 7*rect_w/8;
-		    }
-		    lower_sum /= 8;
-		    lower_sum += rect_w / f_max(w,rect_w, t);
-		    break;};
-		  default: {
-		    unsigned k = 200;
-		    for (unsigned j=0; j<k; j++) {
-			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
-			rect_w = 7*rect_w/8;
-		    }
-		    lower_sum /= 8;
-		    lower_sum += rect_w / f_max(w,rect_w, t);
-		    }
-		}
+		REAL R_simple;
+		REAL eps_simple=eps;
+		REAL eps_opt;
+		int kl=0,kr=0,ks=0;
 
-		R = minimum(delta, lower_sum);
-		M = abs_w + eps;
+		    unsigned k =100;
+		    for (unsigned j=0; j<k; j++) {
+			rect_w = 9*rect_w/8;
+		        REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=-j;}
+//			cout << "# stepcontrol " <<j<< " # "<<rect_w<< " : "<< tmp/9<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/9;
+			if ( tmp < lower_sum/30 || tmp< lower_sum/40) { kl=-j; break;}
+		    }
+		    eps_opt=rect_w;
+		    rect_w = eps;
+		    for (unsigned j=0; j<k; j++) {
+		        REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=j;}
+//			cout << "# stepcontrol " <<j<< " # " <<rect_w<< " : "<< tmp/16<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/16;
+			rect_w =15*rect_w/16;
+			if ( tmp < lower_sum/60 || tmp< lower_sum/70) { kr=j; break;}
+		    }
+		    lower_sum += rect_w / f_max(w,rect_w, t);
+		
+
+		REAL R_opt = minimum(delta, lower_sum);
+		REAL M_opt = abs_w + eps_opt;
+		eps=eps_simple;
+		REAL M_simple=abs_w + eps_simple;
+		cout << "# Radius  " << R_opt << " vs. " <<  R_simple<<"\n";
+		cout << "# Maximum " << M_opt << " vs. " <<  M_simple<<"\n";
+		cout << "# Epsilon " << eps_opt << " vs. " <<  eps_simple<<"\n";
+		cout << "# kl/ks/kr "<< kl << " " << ks << " " <<  kr<<"\n";
+		eps=eps_simple;
+		
+		if (step_control_alg) {
+		   R=R_simple; M=M_simple;
+		}  else {
+		   R=R_opt; M=M_opt;		
+		}
 	}
 
 private:
@@ -724,35 +886,52 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 {
 	REAL r;
 	unsigned dimension, nu;
+	int n, ret;
+	FILE *f;
 	const char *msg = NULL;
 
-	irstream in(fname);
-
-	in >> dimension;
+	if (!(f = fopen(fname, "r"))) {
+		perror(fname);
+		exit(1);
+	}
+	ret = fscanf(f, "%u", &dimension);			/* d */
 
 	POLYNOMIAL_FLOW F(dimension);
 	std::vector<unsigned> ik(dimension+1);
-	std::string s;
-	unsigned line = 1, column = 0;
+	char *s = NULL;
 
-	if (!in)
+	if (ret < 0)
 		{ msg = "d"; goto err; }
 
-	while (++line, (in >> nu)) {				/* nu */
-		if (!(in >> ik[dimension]))			/* k */
-			{ column = 2; msg = "k"; goto err; }
+	while (fscanf(f, "%u", &nu) > 0) {			/* nu */
+		if (fscanf(f, "%u", &ik[dimension]) < 0)	/* k */
+			{ msg = "k"; goto err; }	
 		for (unsigned j=0; j<dimension; j++)
-			if (!(in >> ik[j]))			/* i1,...,id */
-				{ column = 3+j; msg = "i_j"; goto err; }
-		if (!(in >> s) || !s.length())			/* c_{nu,k,i1,...,id} */
-			{ column = 3+dimension; msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
+			if (fscanf(f, "%u", &ik[j]) < 0)	/* i1,...,id */
+				{ msg = "i_j"; goto err; }
+		if (fscanf(f, "%*s%n", &n) < 0 || !n)
+			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
+		if (!(s = (char *)realloc(s, n+1))) {
+			perror("realloc");
+			exit(1);
+		}
+		fseek(f, -n, SEEK_CUR);
+		if (fscanf(f, "%s", s) < 0)			/* c_{nu,k,i1,...,id} */
+			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
 
-		F.add_coeff(nu, VI(parse_REAL(s.c_str()), ik));
+		F.add_coeff(nu, VI(parse_REAL(s), ik));
 	}
+
+	free(s);
+	fclose(f);
 
 	return F;
 err:
-	fprintf(stderr, "invalid coefficient input file, line %u, value %u: expected <%s>\n", line, column, msg);
+	fprintf(stderr,
+		"invalid coefficient input file: expected <%s> at offset %lu\n",
+		msg, ftell(f));
+	free(s);
+	fclose(f);
 	exit(1);
 }
 
@@ -767,7 +946,7 @@ struct Timer {
 
 
 template <typename F>
-class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<std::vector<REAL>,unsigned int >
+class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<unsigned int,std::vector<REAL> >
 {
 	F _flow;
 
@@ -940,8 +1119,6 @@ public:
 		}
 	}
 
-	~FUNCTIONAL_ivp_solver_auto() {}
-
 	const vector<vector<vector<REAL>>> & get_a() const { return a; }
 
 	/* |{(n_1,...,n_d): n_k>=i_k, \sum_k n_k=l}| = (d+l'-1 choose d-1)
@@ -1035,6 +1212,12 @@ public:
 		}
 		return result;
 	}
+
+	virtual void clear()
+	{
+		if (this->release_check()) return;
+		delete this; 
+	}
 };
 
 struct F_REAL {
@@ -1107,7 +1290,7 @@ struct F_REAL {
 };
 
 template <typename F>
-class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<REAL>,unsigned int > {
+class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<unsigned int,std::vector<REAL> > {
 public:
 	const F _flow;
 	std::vector< std::vector< std::vector<F_REAL> > > _a;
@@ -1233,8 +1416,6 @@ public:
 		}
 	}
 
-	~FUNCTIONAL_IVP_SOLVER_RECURSIVE() {}
-
 	std::vector<REAL> eval(const unsigned int & n)
 	{
 		unsigned max_power = (_flow.mu() < 0) ? n : _flow.mu();
@@ -1262,9 +1443,15 @@ public:
 
 		return result;
 	}
+
+	virtual void clear()
+	{
+		if (this->release_check()) return;
+		delete this; 
+	}
 };
 
-class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<std::vector<REAL>,unsigned int> {
+class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<unsigned int,std::vector<REAL>> {
 public:
 	const POLYNOMIAL_FLOW F;
 	/* p[n][nu] */
@@ -1284,8 +1471,6 @@ public:
 		for (unsigned nu=0; nu<F.dimension(); nu++)
 			p[0][nu].set_coeff(0, w[nu]);
 	}
-
-	~FUNCTIONAL_IVP_SOLVER_PICARD() {}
 
 	void step()
 	{
@@ -1325,10 +1510,16 @@ public:
 
 		return result;
 	}
+
+	virtual void clear()
+	{
+		if (this->release_check()) return;
+		delete this; 
+	}
 };
 
 template <typename F>
-inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_recursive(
+inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_recursive(
 	const F &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1336,7 +1527,7 @@ inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_recursive(
 	return new FUNCTIONAL_IVP_SOLVER_RECURSIVE<F>(flow, w, iv_is_zero);
 }
 
-inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_picard(
+inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_picard(
 	const POLYNOMIAL_FLOW &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1345,7 +1536,7 @@ inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_picard(
 }
 
 template <typename F>
-inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_auto(
+inline FUNCTION<unsigned int, std::vector<REAL> > ivp_solver_auto(
 	const F &flow,
 	const std::vector<REAL> &w,
 	bool iv_is_zero
@@ -1391,39 +1582,36 @@ struct Smallstep_Control {
 	}
 };
 
-struct Input {
-	int p;
-	Smallstep_Control ssteps;
-	REAL delta, eps, final_t, R_scale;
-	POLYNOMIAL_FLOW F;
-	std::vector<REAL> w;
-	int step_control_alg;
-};
-
 template <bool autonomous,bool picard>
-void plot_output(const Input &in)
-{
-	FUNCTION<std::vector<REAL>,unsigned int> a;
-	FUNCTION<std::vector<REAL>,REAL> taylor;
+void plot_output(
+	std::vector<REAL> w,
+	const REAL &final_t,
+	POLYNOMIAL_FLOW F,
+	const REAL &delta,
+	const REAL &eps,
+	const REAL &R_scale,
+	const Smallstep_Control &smallsteps,
+	const int step_control_alg
+) {
+	FUNCTION<unsigned int,std::vector<REAL>> a;
+	FUNCTION<REAL,std::vector<REAL>> taylor;
 
 	const int cmp_p = -10;
 	const int delta_t_p = -53;
-	const DYADIC end_t = approx(in.final_t, cmp_p) + scale(INTEGER(2), cmp_p);
-
-	POLYNOMIAL_FLOW F = in.F;
-	std::vector<REAL> w = in.w;
+	const DYADIC end_t = approx(final_t, cmp_p) + scale(INTEGER(2), cmp_p);
 
 	DYADIC_precision dyadic_prec(delta_t_p);
 
 	DYADIC current_t = 0;
 	DYADIC small_t = 0;
-
+	REAL old_t = 0;
 	Timer t;
 	t.start();
+	REAL eps_local=eps;
 
 	unsigned bigsteps;
 	// for (bigsteps = 0; !positive(REAL(current_t) - final_t, cmp_p); bigsteps++) {
-	for (bigsteps = 0; current_t <= end_t; bigsteps++) {
+	for (bigsteps = 0; current_t <= final_t || current_t <=final_t*1.00001; bigsteps++) {
 		REAL R, R_test, M, M_test;
 		REAL R2, M2;
 		DYADIC delta_t;
@@ -1437,14 +1625,14 @@ void plot_output(const Input &in)
 		t.t = 0;
 		t.start();
 
-		F.get_RM(w, 0, in.delta, in.eps, R, M);
-		F.get_RM2(w, 0, in.delta, in.eps, R2, M2, in.step_control_alg);
+		F.get_RM(w, 0, delta, eps, R, M);
+		F.get_RM2(w, 0, delta, eps_local, R2, M2, step_control_alg);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 		cout << "#  "<<current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
 
 		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
 		 *  und  DYADIC_precision(n) */
-		delta_t = approx(R2 * in.R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
+		delta_t = approx(R2 * R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
 		cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
 		cout << "# w = (" << w[0];
 		for (unsigned k=1; k<w.size(); k++)
@@ -1480,9 +1668,9 @@ void plot_output(const Input &in)
 			max_err.exponent++;
 		}
 
-		if (in.ssteps.n_not_delta) {
-			for (unsigned j=0; j<in.ssteps.n_smallsteps; j++) {
-				DYADIC t = (delta_t / (int)in.ssteps.n_smallsteps) * (int)j;
+		if (smallsteps.n_not_delta) {
+			for (unsigned j=0; j<smallsteps.n_smallsteps; j++) {
+				REAL t = (delta_t / (int)smallsteps.n_smallsteps) * (int)j;
 				std::vector<REAL> y = taylor(REAL(t));
 				cout << "taylor( " << (t+current_t) << " ) = ( ";
 				cout << y[0];
@@ -1491,8 +1679,8 @@ void plot_output(const Input &in)
 				cout << " ), max_coeff = " << last_taylor_coeff << "\n" << std::flush;
 			}
 		} else {
-			for (; small_t < current_t + delta_t; small_t = small_t + REAL(in.ssteps.small_delta_t).as_DYADIC()) {
-				std::vector<REAL> y = taylor(REAL(small_t - current_t));
+			for (; small_t < current_t + delta_t; small_t = small_t + REAL(smallsteps.small_delta_t).as_DYADIC()) {
+				std::vector<REAL> y = taylor(REAL(small_t) - current_t);
 				cout << "taylor( " << small_t << " ) = ( ";
 				cout << y[0];
 				for (unsigned k=1; k<y.size(); k++)
@@ -1501,11 +1689,11 @@ void plot_output(const Input &in)
 			}
 		}
 
-		w = taylor(delta_t);
-		/*
-		for (REAL &wj : w)
-			wj = approx(wj, -24);*/
-		current_t = current_t + delta_t;
+		old_t=current_t;
+		current_t= current_t + delta_t;
+		w = taylor(current_t-old_t);
+//		for (REAL &wj : w)
+//			wj = approx(wj, -53);
 
 		if (!autonomous && !F.is_autonomous()) {
 			F = POLYNOMIAL_FLOW(F, delta_t);
@@ -1520,7 +1708,6 @@ void plot_output(const Input &in)
 	cout << "# no. bigsteps: " << bigsteps << ", " << (t.t / 1e3) << "ms   \n";
 }
 
-__attribute__((format(printf,2,3)))
 static void die(int exitval, const char *fmt, ...)
 {
 	va_list ap;
@@ -1545,18 +1732,12 @@ static const char usage[] =
 "  iv*             initial values at t=0\n"
 ;
 
-__attribute__((format(printf,1,2)))
-static void input_error(const char *which, ...)
+static void input_error(const char *which)
 {
-	va_list ap;
-	va_start(ap, which);
-	fprintf(stderr, "input error: ");
-	vfprintf(stderr, which, ap);
-	va_end(ap);
-	die(1, " invalid\n\n%s", usage);
+	die(1, "input error: %s invalid\n\n%s", which, usage);
 }
 
-static Input read_input()
+void compute()
 {
 	int p;
 	std::string ssteps;
@@ -1574,31 +1755,23 @@ static Input read_input()
 	if (!(cin >> final_x)) input_error("<x>");
 
 	if (!(cin >> fname)) input_error("<path/to/coeffs>");
-
 	POLYNOMIAL_FLOW F = read_poly_flow(fname.c_str());
 	std::vector<REAL> w(F.dimension());
 	unsigned i;
 	for (i=0; i<F.dimension(); i++) {
 		std::string s;
-		if (!(cin >> s) || !s.length()) input_error("<iv%d>", i);
+		if (!(cin >> s) || !s.length()) input_error("<iv%d>");
 		w[i] = parse_REAL(s.c_str());
 	}
 	if (!(cin >>  step_control_alg)) input_error("<step control parameter>");
 
-	return { p, Smallstep_Control(ssteps.c_str()), delta, eps, final_x, R_scale, F, w, step_control_alg };
-}
+	cout << setRwidth(p);
 
-void compute()
-{
-	Input in = read_input();
+	print_iterator(F);
 
-	cout << setRwidth(in.p);
-
-	print_iterator(in.F);
-
-	if (in.F.is_autonomous())
-		plot_output<true,!!(METHOD_PICARD-0)>(in);
+	if (F.is_autonomous())
+		plot_output<true,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()),step_control_alg);
 	else
-		plot_output<false,!!(METHOD_PICARD-0)>(in);
+		plot_output<false,!!(METHOD_PICARD-0)>(w, final_x, F, delta, eps, R_scale, Smallstep_Control(ssteps.c_str()),step_control_alg);
 }
 
