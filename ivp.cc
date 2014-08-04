@@ -637,6 +637,7 @@ public:
 		REAL &M, 
 	        const int step_control_alg
 	) const {
+//		stiff area(-ACTUAL_STACK.prec_step/2);
 		REAL abs_w(0);
 		for (unsigned j = 0; j < w.size(); j++) {
 			abs_w += square(w[j]);
@@ -647,58 +648,48 @@ public:
 
 		REAL lower_sum = 0;
 		REAL rect_w = eps;
-		
-		switch (step_control_alg) {
-		  case 1: { 
-		    int k = 50;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 2: { 
-		    int k = 20;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 3: { 
-		    int k = 10000;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 4: { 
-		    int k = 5;
-		    for (int j=1; j<=k; j++) {
-			lower_sum += 1 / f_max(w, j*eps/k, t);
-		    }
-		    lower_sum *= eps/k;    
-		    break;};
-		  case 5: {
-		    unsigned k = 20;
-		    for (unsigned j=0; j<k; j++) {
-			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
-			rect_w = 7*rect_w/8;
-		    }
-		    lower_sum /= 8;
-		    lower_sum += rect_w / f_max(w,rect_w, t);
-		    break;};
-		  default: {
-		    unsigned k = 200;
-		    for (unsigned j=0; j<k; j++) {
-			lower_sum += rect_w / f_max(w, rect_w, t);// f_max(abs_w + rect_w);
-			rect_w = 7*rect_w/8;
-		    }
-		    lower_sum /= 8;
-		    lower_sum += rect_w / f_max(w,rect_w, t);
-		    }
-		}
+		REAL R_simple;
+		REAL eps_simple=eps;
+		REAL eps_opt;
+		int kl=0,kr=0,ks=0;
 
-		R = minimum(delta, lower_sum);
-		M = abs_w + eps;
+		    unsigned k =100;
+		    for (unsigned j=0; j<k; j++) {
+			rect_w = 9*rect_w/8;
+		        REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=-j;}
+//			cout << "# stepcontrol " <<j<< " # "<<rect_w<< " : "<< tmp/9<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/9;
+			if ( tmp < lower_sum/30 || tmp< lower_sum/40) { kl=-j; break;}
+		    }
+		    eps_opt=rect_w;
+		    rect_w = eps;
+		    for (unsigned j=0; j<k; j++) {
+		        REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=j;}
+//			cout << "# stepcontrol " <<j<< " # " <<rect_w<< " : "<< tmp/16<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/16;
+			rect_w =15*rect_w/16;
+			if ( tmp < lower_sum/60 || tmp< lower_sum/70) { kr=j; break;}
+		    }
+		    lower_sum += rect_w / f_max(w,rect_w, t);
+		
+
+		REAL R_opt = minimum(delta, lower_sum);
+		REAL M_opt = abs_w + eps_opt;
+		eps=eps_simple;
+		REAL M_simple=abs_w + eps_simple;
+		cout << "# Radius  " << R_opt << " vs. " <<  R_simple<<"\n";
+		cout << "# Maximum " << M_opt << " vs. " <<  M_simple<<"\n";
+		cout << "# Epsilon " << eps_opt << " vs. " <<  eps_simple<<"\n";
+		cout << "# kl/ks/kr "<< kl << " " << ks << " " <<  kr<<"\n";
+		eps=eps_simple;
+		
+		if (step_control_alg) {
+		   R=R_simple; M=M_simple;
+		}  else {
+		   R=R_opt; M=M_opt;		
+		}
 	}
 
 private:
@@ -1420,10 +1411,11 @@ void plot_output(const Input &in)
 
 	Timer t;
 	t.start();
+	REAL eps_local=eps;
 
 	unsigned bigsteps;
 	// for (bigsteps = 0; !positive(REAL(current_t) - final_t, cmp_p); bigsteps++) {
-	for (bigsteps = 0; current_t <= end_t; bigsteps++) {
+	for (bigsteps = 0; current_t <= end_t /* final_t || current_t <=final_t*1.00001*/; bigsteps++) {
 		REAL R, R_test, M, M_test;
 		REAL R2, M2;
 		DYADIC delta_t;
@@ -1438,7 +1430,7 @@ void plot_output(const Input &in)
 		t.start();
 
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
-		F.get_RM2(w, 0, in.delta, in.eps, R2, M2, in.step_control_alg);
+		F.get_RM2(w, 0, in.delta, in.eps_local, R2, M2, in.step_control_alg);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 		cout << "#  "<<current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
 
@@ -1492,7 +1484,7 @@ void plot_output(const Input &in)
 			}
 		} else {
 			for (; small_t < current_t + delta_t; small_t = small_t + REAL(in.ssteps.small_delta_t).as_DYADIC()) {
-				std::vector<REAL> y = taylor(REAL(small_t - current_t));
+				std::vector<REAL> y = taylor(REAL(small_t) - current_t);
 				cout << "taylor( " << small_t << " ) = ( ";
 				cout << y[0];
 				for (unsigned k=1; k<y.size(); k++)
@@ -1505,7 +1497,13 @@ void plot_output(const Input &in)
 		/*
 		for (REAL &wj : w)
 			wj = approx(wj, -24);*/
+/*
+		old_t=current_t;
+		current_t= current_t + delta_t;
+		w = taylor(current_t-old_t);
+*/
 		current_t = current_t + delta_t;
+
 
 		if (!autonomous && !F.is_autonomous()) {
 			F = POLYNOMIAL_FLOW(F, delta_t);
