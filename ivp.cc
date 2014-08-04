@@ -632,7 +632,7 @@ public:
 		std::vector<REAL> w,
 		const REAL &t0,
 		const REAL &delta,
-		const REAL &eps,
+		REAL &eps,
 		REAL &R,
 		REAL &M, 
 	        const int step_control_alg
@@ -653,27 +653,26 @@ public:
 		REAL eps_opt;
 		int kl=0,kr=0,ks=0;
 
-		    unsigned k =100;
-		    for (unsigned j=0; j<k; j++) {
+		unsigned k =100;
+		for (unsigned j=0; j<k; j++) {
 			rect_w = 9*rect_w/8;
-		        REAL tmp=rect_w / f_max(w, rect_w, t);
+			REAL tmp=rect_w / f_max(w, rect_w, t);
 			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=-j;}
 //			cout << "# stepcontrol " <<j<< " # "<<rect_w<< " : "<< tmp/9<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
 			lower_sum += tmp/9;
 			if ( tmp < lower_sum/30 || tmp< lower_sum/40) { kl=-j; break;}
-		    }
-		    eps_opt=rect_w;
-		    rect_w = eps;
-		    for (unsigned j=0; j<k; j++) {
-		        REAL tmp=rect_w / f_max(w, rect_w, t);
+		}
+		eps_opt=rect_w;
+		rect_w = eps;
+		for (unsigned j=0; j<k; j++) {
+			REAL tmp=rect_w / f_max(w, rect_w, t);
 			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=j;}
 //			cout << "# stepcontrol " <<j<< " # " <<rect_w<< " : "<< tmp/16<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
 			lower_sum += tmp/16;
 			rect_w =15*rect_w/16;
 			if ( tmp < lower_sum/60 || tmp< lower_sum/70) { kr=j; break;}
-		    }
-		    lower_sum += rect_w / f_max(w,rect_w, t);
-		
+		}
+		lower_sum += rect_w / f_max(w,rect_w, t);
 
 		REAL R_opt = minimum(delta, lower_sum);
 		REAL M_opt = abs_w + eps_opt;
@@ -684,11 +683,11 @@ public:
 		cout << "# Epsilon " << eps_opt << " vs. " <<  eps_simple<<"\n";
 		cout << "# kl/ks/kr "<< kl << " " << ks << " " <<  kr<<"\n";
 		eps=eps_simple;
-		
+
 		if (step_control_alg) {
-		   R=R_simple; M=M_simple;
+			R=R_simple; M=M_simple;
 		}  else {
-		   R=R_opt; M=M_opt;		
+			R=R_opt; M=M_opt;
 		}
 	}
 
@@ -1411,7 +1410,7 @@ void plot_output(const Input &in)
 
 	Timer t;
 	t.start();
-	REAL eps_local=eps;
+	REAL eps_local=in.eps;
 
 	unsigned bigsteps;
 	// for (bigsteps = 0; !positive(REAL(current_t) - final_t, cmp_p); bigsteps++) {
@@ -1430,7 +1429,7 @@ void plot_output(const Input &in)
 		t.start();
 
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
-		F.get_RM2(w, 0, in.delta, in.eps_local, R2, M2, in.step_control_alg);
+		F.get_RM2(w, 0, in.delta, eps_local, R2, M2, in.step_control_alg);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 		cout << "#  "<<current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
 
@@ -1493,17 +1492,17 @@ void plot_output(const Input &in)
 			}
 		}
 
+#if 1
 		w = taylor(delta_t);
-		/*
-		for (REAL &wj : w)
-			wj = approx(wj, -24);*/
-/*
+		current_t = current_t + delta_t;
+#else
 		old_t=current_t;
 		current_t= current_t + delta_t;
 		w = taylor(current_t-old_t);
-*/
-		current_t = current_t + delta_t;
-
+#endif
+		/*
+		for (REAL &wj : w)
+			wj = approx(wj, -24);*/
 
 		if (!autonomous && !F.is_autonomous()) {
 			F = POLYNOMIAL_FLOW(F, delta_t);
@@ -1530,7 +1529,7 @@ static void die(int exitval, const char *fmt, ...)
 
 static const char usage[] =
 "usage: echo <p> { <small-steps> | <delta_t_num>/<delta_t_den> } <delta> <eps>"
-	" <R-scale> <x> <path/to/coeffs> <iv1> ... <ivd> | ivp [-iRRAM-OPTS]\n"
+	" <R-scale> <x> <path/to/coeffs> <iv1> ... <ivd> <step-size-alg> | ivp [-iRRAM-OPTS]\n"
 "\n"
 "  p               precision of output values in decimal places\n"
 "  small-steps     # of steps to divide each big-step into\n"
@@ -1541,6 +1540,7 @@ static const char usage[] =
 "  x               final t to stop the iteration at (or around)\n"
 "  path/to/coeffs  coefficients of the flow function in the format '<d> (<nu> <k> <i1> ... <id>)*'\n"
 "  iv*             initial values at t=0\n"
+"  step-size-alg   0: improved, 1: simple version\n"
 ;
 
 __attribute__((format(printf,1,2)))
