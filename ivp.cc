@@ -52,12 +52,6 @@ REAL abs(const std::vector<REAL>& x)
 /****************************************************************************************/
 
 class FUNCTIONAL_taylor_sum :public FUNCTIONAL_object<REAL,REAL> {
-	virtual void clear()
-	{
-		if (this->release_check())
-			return;
-		delete this; 
-	}
 
 /***********************************************************/
 /* local data: coefficients (as a function),  radius and corresponding bound */
@@ -76,6 +70,8 @@ public:
 		_radius=radius;
 		_bound=bound;
 	}
+
+	~FUNCTIONAL_taylor_sum() {}
 
 /****************************************************************************************/
 /* Evaluation:										*/
@@ -138,7 +134,7 @@ inline FUNCTION<REAL,REAL> taylor_sum (
 		const REAL& radius,
 		const REAL& bound
 ) {
-	return new FUNCTIONAL_taylor_sum (coeff,radius,bound);
+	return new FUNCTIONAL_taylor_sum(coeff,radius,bound);
 }
 
 //********************************************************************************
@@ -147,11 +143,6 @@ inline FUNCTION<REAL,REAL> taylor_sum (
 //********************************************************************************
 
 class FUNCTIONAL_vector_taylor_sum :public FUNCTIONAL_object<std::vector<REAL>,REAL > {
-	virtual void clear()
-	{
-		if (this->release_check()) return;
-		delete this; 
-	}
 
 	REAL _radius;
 	REAL _bound;
@@ -167,6 +158,8 @@ public:
 		_radius=radius;
 		_bound=bound;
 	}
+
+	~FUNCTIONAL_vector_taylor_sum() {}
 
 	std::vector<REAL> eval(const REAL& t)
 	{
@@ -902,6 +895,8 @@ public:
 		}
 	}
 
+	~FUNCTIONAL_ivp_solver_auto() {}
+
 	const vector<vector<vector<REAL>>> & get_a() const { return a; }
 
 	/* |{(n_1,...,n_d): n_k>=i_k, \sum_k n_k=l}| = (d+l'-1 choose d-1)
@@ -994,12 +989,6 @@ public:
 			DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
 		}
 		return result;
-	}
-
-	virtual void clear()
-	{
-		if (this->release_check()) return;
-		delete this; 
 	}
 };
 
@@ -1199,6 +1188,8 @@ public:
 		}
 	}
 
+	~FUNCTIONAL_IVP_SOLVER_RECURSIVE() {}
+
 	std::vector<REAL> eval(const unsigned int & n)
 	{
 		unsigned max_power = (_flow.mu() < 0) ? n : _flow.mu();
@@ -1226,12 +1217,6 @@ public:
 
 		return result;
 	}
-
-	virtual void clear()
-	{
-		if (this->release_check()) return;
-		delete this; 
-	}
 };
 
 class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<std::vector<REAL>,unsigned int> {
@@ -1254,6 +1239,8 @@ public:
 		for (unsigned nu=0; nu<F.dimension(); nu++)
 			p[0][nu].set_coeff(0, w[nu]);
 	}
+
+	~FUNCTIONAL_IVP_SOLVER_PICARD() {}
 
 	void step()
 	{
@@ -1292,12 +1279,6 @@ public:
 			result[nu] = p[n+1][nu].degree() < n ? REAL(0) : p[n+1][nu][n];
 
 		return result;
-	}
-
-	virtual void clear()
-	{
-		if (this->release_check()) return;
-		delete this; 
 	}
 };
 
