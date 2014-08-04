@@ -689,25 +689,26 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 	POLYNOMIAL_FLOW F(dimension);
 	std::vector<unsigned> ik(dimension+1);
 	std::string s;
+	unsigned line = 1, column = 0;
 
 	if (!in)
 		{ msg = "d"; goto err; }
 
-	while ((in >> nu)) {					/* nu */
+	while (++line, (in >> nu)) {				/* nu */
 		if (!(in >> ik[dimension]))			/* k */
-			{ msg = "k"; goto err; }
+			{ column = 2; msg = "k"; goto err; }
 		for (unsigned j=0; j<dimension; j++)
 			if (!(in >> ik[j]))			/* i1,...,id */
-				{ msg = "i_j"; goto err; }
+				{ column = 3+j; msg = "i_j"; goto err; }
 		if (!(in >> s) || !s.length())			/* c_{nu,k,i1,...,id} */
-			{ msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
+			{ column = 3+dimension; msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
 
 		F.add_coeff(nu, VI(parse_REAL(s.c_str()), ik));
 	}
 
 	return F;
 err:
-	fprintf(stderr, "invalid coefficient input file: expected <%s>\n", msg);
+	fprintf(stderr, "invalid coefficient input file, line %u, value %u: expected <%s>\n", line, column, msg);
 	exit(1);
 }
 
