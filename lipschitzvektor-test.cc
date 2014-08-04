@@ -23,8 +23,8 @@ REAL my_lipf(const vector<REAL> & x){return pi()/100000000;}
 void compute () {
 
 FUNCTION<vector<REAL>,vector<REAL> > f = my_code;
-FUNCTION<vector<REAL>,LAZY_BOOLEAN> d = my_test;
-FUNCTION<vector<REAL>,REAL> L = my_lipf;
+FUNCTION<LAZY_BOOLEAN,vector<REAL>> d = my_test;
+FUNCTION<REAL,vector<REAL>> L = my_lipf;
 
 vector<REAL> x(2);
 x[0]=sqrt(REAL(2));

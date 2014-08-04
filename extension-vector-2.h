@@ -4,8 +4,8 @@ namespace iRRAM {
 
 vector<REAL> lipschitz_maxnorm (
     const FUNCTION<vector<REAL>,vector<REAL> >& f,
-    const FUNCTION<vector<REAL>,REAL>& lip_f,
-    const FUNCTION<vector<REAL>,LAZY_BOOLEAN>& on_domain,
+    const FUNCTION<REAL,vector<REAL>>& lip_f,
+    const FUNCTION<LAZY_BOOLEAN,vector<REAL>>& on_domain,
     const vector<REAL>& x)
 /* 
  * lipschitz_maxnorm(f,lip_f,on_domain,x) computes f(x) with an optimized algorithm,
@@ -64,9 +64,9 @@ vector<REAL> lipschitz_maxnorm (
 vector<REAL> lipschitz_maxnorm (
     const FUNCTION<vector<REAL>,vector<REAL> >& f,
     const REAL& lip_c,
-    const FUNCTION<vector<REAL>,LAZY_BOOLEAN>& on_domain,
+    const FUNCTION<LAZY_BOOLEAN,vector<REAL>>& on_domain,
     const vector<REAL>& x){
-  return lipschitz_maxnorm(f,from_value<vector<REAL>,REAL>(lip_c),on_domain,x);
+  return lipschitz_maxnorm(f,from_value<REAL,vector<REAL>>(lip_c),on_domain,x);
 }
 
 // FUNCTION<vector<REAL>, vector<REAL> > lipschitz_maxnorm (
