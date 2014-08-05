@@ -1381,6 +1381,47 @@ struct Smallstep_Control {
 	}
 };
 
+template <bool picard>
+static std::vector<REAL> bigstep(
+	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &delta, REAL &eps, const REAL &R_scale, int step_control_alg,
+	const DYADIC &current_t, DYADIC &delta_t,
+	FUNCTION<std::vector<REAL>,REAL> &taylor, sizetype &max_err
+) {
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+
+	REAL R2, M2;
+	sizetype err;
+
+	const int &delta_t_p = iRRAM_DYADIC_precision;
+
+	F.get_RM2(w, 0, delta, eps, R2, M2, step_control_alg);
+	cout << "#  " << current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
+
+	/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
+	 *  und  DYADIC_precision(n) */
+	delta_t = approx(R2 * R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
+	cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
+	cout << "# w = (" << w[0];
+	for (unsigned k=1; k<w.size(); k++)
+		cout << ", " << w[k];
+	w[0].geterror(err);
+	cout << ") +/- (" << err.mantissa << "*2^(" << err.exponent << ")";
+	max_err = err;
+	for (unsigned k=1; k<w.size(); k++) {
+		w[k].geterror(err);
+		cout << ", " << err.mantissa << "*2^(" << err.exponent << ")";
+		if (sizetype_less(max_err, err))
+			max_err = err;
+	}
+	cout << ")\n";
+
+	a = picard ? ivp_solver_picard(F, w, false)
+	           : ivp_solver_recursive(F, w, false);
+	taylor = taylor_sum(a, R2, M2);
+	return taylor((current_t + delta_t) - REAL(current_t));
+}
+
 struct Input {
 	int p;
 	Smallstep_Control ssteps;
@@ -1393,7 +1434,6 @@ struct Input {
 template <bool autonomous,bool picard>
 void plot_output(const Input &in)
 {
-	FUNCTION<std::vector<REAL>,unsigned int> a;
 	FUNCTION<std::vector<REAL>,REAL> taylor;
 
 	const int cmp_p = -10;
@@ -1418,7 +1458,7 @@ void plot_output(const Input &in)
 		REAL R, R_test, M, M_test;
 		REAL R2, M2;
 		DYADIC delta_t;
-		sizetype err, max_err;
+		sizetype max_err;
 
 		t.stop();
 		cout << "# --------------------------------------------\n";
@@ -1429,42 +1469,11 @@ void plot_output(const Input &in)
 		t.start();
 
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
-		F.get_RM2(w, 0, in.delta, eps_local, R2, M2, in.step_control_alg);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
-		cout << "#  "<<current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
 
-		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
-		 *  und  DYADIC_precision(n) */
-		delta_t = approx(R2 * in.R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
-		cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
-		cout << "# w = (" << w[0];
-		for (unsigned k=1; k<w.size(); k++)
-			cout << ", " << w[k];
-		w[0].geterror(err);
-		cout << ") +/- (" << err.mantissa << "*2^(" << err.exponent << ")";
-		max_err = err;
-		for (unsigned k=1; k<w.size(); k++) {
-			w[k].geterror(err);
-			cout << ", " << err.mantissa << "*2^(" << err.exponent << ")";
-			if (sizetype_less(max_err, err))
-				max_err = err;
-		}
-		cout << ")\n";/*
-		cout << "# L = (" << flow_lipschitz_C(F, 0, w, REAL(delta_t), eps);
-		for (unsigned k=1; k<F.dimension(); k++)
-			cout << ", " << flow_lipschitz_C(F, k, w, REAL(delta_t), eps);
-		cout << ")\n";*/
-		/*
-		cout << "# no. bits lost: (";
-		for (unsigned k=0; k<F.dimension(); k++)
-			cout << (k == 0 ? "" : ", ")
-			     << (flow_lipschitz_C(F, k, w, REAL(delta_t), eps) * REAL(delta_t) * REAL(1)/log(REAL(2)) +
-			         err.exponent * log((w[k].geterror(err), 
-			             scale(REAL((double)err.mantissa)))));
-		cout << ")\n";*/
-
-		a = picard ? ivp_solver_picard(F, w, false) : ivp_solver_recursive(F, w, false);
-		taylor = taylor_sum(a, R2, M2);
+		w = bigstep<picard>(w, F, in.delta, eps_local, in.R_scale,
+		                    in.step_control_alg, current_t, delta_t,
+		                    taylor, max_err);
 
 		while (max_err.mantissa) {
 			max_err.mantissa >>= 1;
@@ -1493,12 +1502,12 @@ void plot_output(const Input &in)
 		}
 
 #if 1
-		w = taylor(delta_t);
+		// w = taylor(delta_t);
 		current_t = current_t + delta_t;
 #else
-		old_t=current_t;
+		REAL old_t=current_t;
 		current_t= current_t + delta_t;
-		w = taylor(current_t-old_t);
+		// w = taylor(current_t-old_t);
 #endif
 		/*
 		for (REAL &wj : w)
