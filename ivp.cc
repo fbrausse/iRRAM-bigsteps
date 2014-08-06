@@ -3,6 +3,7 @@
 #include <list>
 #include <cassert>
 #include "iRRAM/limit_templates.h"
+#include "extension-vector-2.h"
 
 #include <sys/time.h>
 #include <cstdarg>
@@ -1471,9 +1472,20 @@ void plot_output(const Input &in)
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 
+		auto bs = std::bind(bigstep<picard>, std::placeholders::_1,
+		                    std::cref(F), std::cref(in.delta),
+		                    std::ref(eps_local), std::cref(in.R_scale),
+		                    in.step_control_alg, std::cref(current_t),
+		                    std::ref(delta_t), std::ref(taylor),
+		                    std::ref(max_err));
+		std::function<std::vector<REAL>(const std::vector<REAL> &)> bsf = bs;
+/*
 		w = bigstep<picard>(w, F, in.delta, eps_local, in.R_scale,
 		                    in.step_control_alg, current_t, delta_t,
 		                    taylor, max_err);
+*/
+		auto on_domain = from_value<LAZY_BOOLEAN,std::vector<REAL>>(true);
+		w = lipschitz_maxnorm(from_algorithm(bsf), REAL(1.01), on_domain, w);
 
 		while (max_err.mantissa) {
 			max_err.mantissa >>= 1;

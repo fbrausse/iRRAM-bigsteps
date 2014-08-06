@@ -2,11 +2,11 @@
 
 namespace iRRAM {
 
-vector<REAL> lipschitz_maxnorm (
-    const FUNCTION<vector<REAL>,vector<REAL> >& f,
-    const FUNCTION<REAL,vector<REAL>>& lip_f,
-    const FUNCTION<LAZY_BOOLEAN,vector<REAL>>& on_domain,
-    const vector<REAL>& x)
+std::vector<REAL> lipschitz_maxnorm (
+    const FUNCTION<std::vector<REAL>,std::vector<REAL> >& f,
+    const FUNCTION<REAL,std::vector<REAL>>& lip_f,
+    const FUNCTION<LAZY_BOOLEAN,std::vector<REAL>>& on_domain,
+    const std::vector<REAL>& x)
 /* 
  * lipschitz_maxnorm(f,lip_f,on_domain,x) computes f(x) with an optimized algorithm,
  * 	with reduced error propagation
@@ -22,7 +22,7 @@ vector<REAL> lipschitz_maxnorm (
 
   stiff code_2;
   
-  vector<REAL> x_new(x.size());
+  std::vector<REAL> x_new(x.size());
   sizetype arg_error;
   sizetype_exact(arg_error);
   
@@ -38,7 +38,7 @@ vector<REAL> lipschitz_maxnorm (
   
   cerr << "starting function lipschitz_maxnorm\n";
   
-  vector<REAL> lip_result = f(x_new);
+  std::vector<REAL> lip_result = f(x_new);
 
   sizetype lip_error,lip_size;
   lip_bound.getsize(lip_size);
@@ -61,12 +61,12 @@ vector<REAL> lipschitz_maxnorm (
 }
 
 
-vector<REAL> lipschitz_maxnorm (
-    const FUNCTION<vector<REAL>,vector<REAL> >& f,
+std::vector<REAL> lipschitz_maxnorm (
+    const FUNCTION<std::vector<REAL>,std::vector<REAL> >& f,
     const REAL& lip_c,
-    const FUNCTION<LAZY_BOOLEAN,vector<REAL>>& on_domain,
-    const vector<REAL>& x){
-  return lipschitz_maxnorm(f,from_value<REAL,vector<REAL>>(lip_c),on_domain,x);
+    const FUNCTION<LAZY_BOOLEAN,std::vector<REAL>>& on_domain,
+    const std::vector<REAL>& x){
+  return lipschitz_maxnorm(f,from_value<REAL,std::vector<REAL>>(lip_c),on_domain,x);
 }
 
 // FUNCTION<vector<REAL>, vector<REAL> > lipschitz_maxnorm (
