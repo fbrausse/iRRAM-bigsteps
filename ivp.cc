@@ -1382,46 +1382,34 @@ struct Smallstep_Control {
 	}
 };
 
+#if 1
+template <bool picard>
+static FUNCTION<std::vector<REAL>,REAL> bigstep(
+	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+) {
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+
+	a = picard ? ivp_solver_picard(F, w, false)
+	           : ivp_solver_recursive(F, w, false);
+	return taylor_sum(a, R2, M2);
+}
+#else
 template <bool picard>
 static std::vector<REAL> bigstep(
 	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
-	const REAL &delta, REAL &eps, const REAL &R_scale, int step_control_alg,
+	const REAL &R2, const REAL &M2,
 	const DYADIC &current_t, DYADIC &delta_t,
 	FUNCTION<std::vector<REAL>,REAL> &taylor, sizetype &max_err
 ) {
 	FUNCTION<std::vector<REAL>,unsigned int> a;
-
-	REAL R2, M2;
-	sizetype err;
-
-	const int &delta_t_p = iRRAM_DYADIC_precision;
-
-	F.get_RM2(w, 0, delta, eps, R2, M2, step_control_alg);
-	cout << "#  " << current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
-
-	/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
-	 *  und  DYADIC_precision(n) */
-	delta_t = approx(R2 * R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
-	cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
-	cout << "# w = (" << w[0];
-	for (unsigned k=1; k<w.size(); k++)
-		cout << ", " << w[k];
-	w[0].geterror(err);
-	cout << ") +/- (" << err.mantissa << "*2^(" << err.exponent << ")";
-	max_err = err;
-	for (unsigned k=1; k<w.size(); k++) {
-		w[k].geterror(err);
-		cout << ", " << err.mantissa << "*2^(" << err.exponent << ")";
-		if (sizetype_less(max_err, err))
-			max_err = err;
-	}
-	cout << ")\n";
 
 	a = picard ? ivp_solver_picard(F, w, false)
 	           : ivp_solver_recursive(F, w, false);
 	taylor = taylor_sum(a, R2, M2);
 	return taylor((current_t + delta_t) - REAL(current_t));
 }
+#endif
 
 struct Input {
 	int p;
@@ -1452,6 +1440,7 @@ void plot_output(const Input &in)
 	Timer t;
 	t.start();
 	REAL eps_local=in.eps;
+	sizetype err;
 
 	unsigned bigsteps;
 	// for (bigsteps = 0; !positive(REAL(current_t) - final_t, cmp_p); bigsteps++) {
@@ -1472,12 +1461,38 @@ void plot_output(const Input &in)
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 
+		F.get_RM2(w, 0, in.delta, eps_local, R2, M2, in.step_control_alg);
+		cout << "#  " << current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
+
+		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
+		 *  und  DYADIC_precision(n) */
+		delta_t = approx(R2 * in.R_scale, delta_t_p) - scale(DYADIC(1), delta_t_p);
+		cout << "# t = " << current_t << ", delta_t = " << delta_t << "\n";
+		cout << "# w = (" << w[0];
+		for (unsigned k=1; k<w.size(); k++)
+			cout << ", " << w[k];
+		w[0].geterror(err);
+		cout << ") +/- (" << err.mantissa << "*2^(" << err.exponent << ")";
+		max_err = err;
+		for (unsigned k=1; k<w.size(); k++) {
+			w[k].geterror(err);
+			cout << ", " << err.mantissa << "*2^(" << err.exponent << ")";
+			if (sizetype_less(max_err, err))
+				max_err = err;
+		}
+		cout << ")\n";
+
+#if 1
 		auto bs = std::bind(bigstep<picard>, std::placeholders::_1,
-		                    std::cref(F), std::cref(in.delta),
-		                    std::ref(eps_local), std::cref(in.R_scale),
-		                    in.step_control_alg, std::cref(current_t),
-		                    std::ref(delta_t), std::ref(taylor),
-		                    std::ref(max_err));
+		                    std::cref(F), std::cref(R2), std::cref(M2));
+		std::function<FUNCTION<std::vector<REAL>,REAL>(const std::vector<REAL> &)> bsf = bs;
+		auto on_domain = from_value<LAZY_BOOLEAN,std::vector<REAL>>(true);
+		taylor = lipschitzify(from_algorithm(bsf), from_value<REAL,std::vector<REAL>,REAL>(REAL(1.01)), on_domain, w);
+#else
+		auto bs = std::bind(bigstep<picard>, std::placeholders::_1,
+		                    std::cref(F), std::cref(R2), std::cref(M2),
+		                    std::cref(current_t), std::ref(delta_t),
+		                    std::ref(taylor), std::ref(max_err));
 		std::function<std::vector<REAL>(const std::vector<REAL> &)> bsf = bs;
 /*
 		w = bigstep<picard>(w, F, in.delta, eps_local, in.R_scale,
@@ -1486,6 +1501,7 @@ void plot_output(const Input &in)
 */
 		auto on_domain = from_value<LAZY_BOOLEAN,std::vector<REAL>>(true);
 		w = lipschitz_maxnorm(from_algorithm(bsf), REAL(1.01), on_domain, w);
+#endif
 
 		while (max_err.mantissa) {
 			max_err.mantissa >>= 1;
@@ -1513,13 +1529,13 @@ void plot_output(const Input &in)
 			}
 		}
 
-#if 1
+#if 0
 		// w = taylor(delta_t);
 		current_t = current_t + delta_t;
 #else
 		REAL old_t=current_t;
 		current_t= current_t + delta_t;
-		// w = taylor(current_t-old_t);
+		w = taylor(current_t-old_t);
 #endif
 		/*
 		for (REAL &wj : w)

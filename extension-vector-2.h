@@ -2,11 +2,9 @@
 
 namespace iRRAM {
 
-
 template <typename... P>
-FUNCTION<std::vector<REAL>,P...>
-lipschitzify(
-	const FUNCTION<std::vector<REAL>,std::vector<REAL>,P...> &f,
+FUNCTION<std::vector<REAL>,P...> lipschitzify(
+	const FUNCTION<FUNCTION<std::vector<REAL>,P...>,std::vector<REAL>> &f,
 	const FUNCTION<REAL,std::vector<REAL>,P...> &lip_f,
 	const FUNCTION<LAZY_BOOLEAN,std::vector<REAL>> &on_domain,
 	const std::vector<REAL> &x
@@ -19,8 +17,6 @@ lipschitzify(
 	std::vector<REAL> x_new(x.size());
 	sizetype arg_error;
 	{
-		stiff code_2;
-
 		sizetype_exact(arg_error);
 
 		for (unsigned int i=0;i<x.size();i++) {
@@ -32,12 +28,18 @@ lipschitzify(
 		}
 	}
 
+	cerr << "starting function lipschitz_maxnorm\n";
+
+	FUNCTION<std::vector<REAL>,P...> fl;
+	{
+		stiff code_2;
+		fl = f(x_new);
+	}
+
 	return from_algorithm(
 		std::function<std::vector<REAL>(const P &...)>(
-			[f,lip_f,arg_error,x,x_new](const P &... p)
+			[fl,lip_f,arg_error,x](const P &... p)
 			{
-				cerr << "starting function lipschitz_maxnorm\n";
-
 				single_valued code_1; 
 
 				REAL lip_bound = lip_f(x,p...);
@@ -45,7 +47,7 @@ lipschitzify(
 				std::vector<REAL> lip_result;
 				{
 					stiff code_2;
-					lip_result = f(x_new,p...);
+					lip_result = fl(p...);
 				}
 
 				sizetype lip_error,lip_size;
@@ -62,10 +64,6 @@ lipschitzify(
 		)
 	);
 }
-
-
-
-
 
 std::vector<REAL> lipschitz_maxnorm (
     const FUNCTION<std::vector<REAL>,std::vector<REAL> >& f,
