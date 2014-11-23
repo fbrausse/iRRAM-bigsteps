@@ -32,7 +32,7 @@ FUNCTION<std::vector<REAL>,P...> lipschitzify(
 
 	FUNCTION<std::vector<REAL>,P...> fl;
 	{
-		stiff code_2;
+		// stiff code_2;
 		fl = f(x_new);
 	}
 
@@ -46,7 +46,7 @@ FUNCTION<std::vector<REAL>,P...> lipschitzify(
 
 				std::vector<REAL> lip_result;
 				{
-					stiff code_2;
+					// stiff code_2;
 					lip_result = fl(p...);
 				}
 
