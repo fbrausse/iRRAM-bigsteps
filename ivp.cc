@@ -12,7 +12,7 @@
 # define METHOD_PICARD	0
 #endif
 
-#define dbg(fmt, ...) DEBUG0(2,{fprintf(stderr, (fmt), ##__VA_ARGS__);})
+#define dbg(...)	iRRAM_DEBUG2(2,__VA_ARGS__)
 
 unsigned int max_taylor_coeff=0; // only statistical purpose!
 unsigned int last_taylor_coeff=0; // only statistical purpose!
@@ -90,7 +90,7 @@ public:
 		REAL factor=1;
 		REAL error=_bound*_radius/(_radius-abs(x));
 		REAL errorfactor=abs(x)/_radius;
-		DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<ACTUAL_STACK.actual_prec
+		iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<ACTUAL_STACK.actual_prec
 			<< " at ratio "<< errorfactor.vsize.mantissa*pow(2,errorfactor.vsize.exponent)<<"\n";});
 
 		sizetype sum_error,trunc_error,best_error;
@@ -115,7 +115,7 @@ public:
 			}
 			if (trunc_error.exponent<ACTUAL_STACK.actual_prec ||
 			     sizetype_less(trunc_error,sum_error)) {
-				DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum: stop at "
+				iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum: stop at "
 						<<i<< " with best at "<<best_index<<"\n";});
 				if (i>max_taylor_coeff) max_taylor_coeff=i; // only statistical purpose!
 				last_taylor_coeff = i;
@@ -1022,7 +1022,7 @@ public:
 		std::vector<REAL> result(_dimension);
 		for (unsigned int nu = 0; nu < _dimension; nu++) {
 			result[nu] = a[nu][1][n];
-			DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
+			iRRAM_DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
 		}
 		return result;
 	}
@@ -1244,7 +1244,7 @@ public:
 		std::vector<REAL> result(_dimension);
 		for (unsigned int nu = 0; nu < _dimension; nu++) {
 			result[nu] = a(nu,1,n);
-			DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
+			iRRAM_DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
 		}
 
 		//t.stop();

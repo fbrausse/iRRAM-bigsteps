@@ -11,7 +11,7 @@ include Makefile.paths
 
 PKG_CONFIG      = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) pkg-config
 
-override CFLAGS   += -O2 -Wall -DNDEBUG -pg #--coverage #-Wextra -pedantic
+override CFLAGS   += -O2 -Wall -DNDEBUG #--coverage #-Wextra -pedantic
 override CFLAGS   += -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-switch
 override CXXFLAGS := $(CXXFLAGS) -std=c++11 $(CFLAGS) -Wno-tautological-compare
 override CFLAGS   := -std=c11 $(CFLAGS)
