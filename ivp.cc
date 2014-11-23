@@ -433,6 +433,50 @@ ok:;
 		return *this;
 	}
 	POLYNOMIAL2 operator*(const POLYNOMIAL2 &p) const { return POLYNOMIAL2(*this) *= p; }
+
+	/* partial derivative */
+	POLYNOMIAL2 derivative(unsigned component) const
+	{
+		POLYNOMIAL2 r(d);
+		for (const I &i : c) {
+			if (!i.i[component])
+				continue;
+			I j = i;
+			j.ci *= j.i[component]--;
+			r.add_coeff(j);
+		}
+		return r;
+	}
+
+	template <typename K2>
+	auto operator()(const std::vector<K2> &x) -> decltype(REAL(0) * x[0])
+	{
+		using KR = decltype(REAL(0) * x[0]);
+		assert(x.size() == d);
+		KR r = 0;
+		for (const I &i : c) {
+			K2 s = 1;
+			for (unsigned j=0; j<d; j++)
+				s *= power(x[j], i.i[j]);
+			r += i.ci * s;
+		}
+		return r;
+	}
+
+	friend orstream & operator<<(orstream &o, const POLYNOMIAL2 &p)
+	{
+		bool first = true;
+		for (const I &i : p.c) {
+			if (!first)
+				o << "+";
+			o << "(" << i.ci << ")";
+			for (unsigned k=0; k<p.d; k++)
+				o << "*x" << k << "^" << i.i[k];
+			first = false;
+		}
+		return o;
+	}
+
 private:
 	unsigned mu;
 	unsigned d;
