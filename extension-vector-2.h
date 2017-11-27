@@ -1,4 +1,5 @@
-#include "iRRAM/core.h"
+
+#include <iRRAM/core.h>
 
 namespace iRRAM {
 
@@ -11,8 +12,8 @@ FUNCTION<std::vector<REAL>,P...> lipschitzify(
 ) {
 	single_valued code_1; 
 
-	if (on_domain(x) != true)
-		REITERATE(0);
+	if (!on_domain(x))
+		iRRAM_REITERATE(0);
 
 	std::vector<REAL> x_new(x.size());
 	sizetype arg_error;
@@ -80,7 +81,8 @@ std::vector<REAL> lipschitz_maxnorm (
 {
   single_valued code_1; 
 
-  if ( on_domain(x) != true ) REITERATE(0);
+  if (!on_domain(x))
+    iRRAM_REITERATE(0);
   REAL lip_bound=lip_f(x);
 
   stiff code_2;

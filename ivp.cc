@@ -83,14 +83,13 @@ public:
 
 	REAL eval(const REAL &x)
 	{
-		ITERATION_STACK SAVED_STACK;
-		ACTUAL_STACK.inlimit+=1;
+		single_valued code;
 		REAL sum=0;
 		REAL best=0;
 		REAL factor=1;
 		REAL error=_bound*_radius/(_radius-abs(x));
 		REAL errorfactor=abs(x)/_radius;
-		iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<ACTUAL_STACK.actual_prec
+		iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<actual_stack().actual_prec
 			<< " at ratio "<< errorfactor.vsize.mantissa*pow(2,errorfactor.vsize.exponent)<<"\n";});
 
 		sizetype sum_error,trunc_error,best_error;
@@ -113,7 +112,7 @@ public:
 				best.seterror(best_error);
 				best_index=i;
 			}
-			if (trunc_error.exponent<ACTUAL_STACK.actual_prec ||
+			if (trunc_error.exponent < actual_stack().actual_prec ||
 			     sizetype_less(trunc_error,sum_error)) {
 				iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum: stop at "
 						<<i<< " with best at "<<best_index<<"\n";});
@@ -752,7 +751,7 @@ static REAL parse_REAL(const char *s)
 	else if (strchr(s, '/'))
 		return RATIONAL(s);
 	else
-		return s;
+		return REAL(s);
 }
 
 POLYNOMIAL_FLOW read_poly_flow(const char *fname)
