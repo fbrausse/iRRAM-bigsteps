@@ -20,6 +20,7 @@ EXES      = \
 	ivp \
 	pendulum \
 	nbody \
+	PIVP \
 
 iRRAM_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib
 iRRAM_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM
@@ -29,6 +30,11 @@ ivp_OBJS     = ivp.o
 ivp_LDFLAGS  = $(iRRAM_LDFLAGS) -pg
 ivp_LDLIBS   = $(iRRAM_LDLIBS) # -lgcov
 ivp_CXXFLAGS = $(iRRAM_CXXFLAGS) #-pg
+
+PIVP_OBJS     = PIVP.o TaylorModel.o
+PIVP_LDFLAGS  = $(iRRAM_LDFLAGS)
+PIVP_LDLIBS   = $(iRRAM_LDLIBS)
+PIVP_CXXFLAGS = $(iRRAM_CXXFLAGS)
 
 ifneq ($(PICARD),)
 ivp_CXXFLAGS += -DMETHOD_PICARD=$(PICARD)

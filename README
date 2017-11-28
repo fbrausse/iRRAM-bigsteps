@@ -1,0 +1,35 @@
+usage: echo <p> { <small-steps> | <delta_t_num>/<delta_t_den> } 
+	    <delta> <eps> <R-scale> <x> 
+	    <path/to/coeffs> 
+	    <iv1> ... <ivd>
+	    <step-size-alg> <TM_max_degree> <R_steps> <sweepto> 
+      | PIVP [-iRRAM-OPTS]
+
+
+
+  p               precision of output values in decimal places
+  small-steps     # of steps to divide each big-step into
+  delta_t_*       fraction defining the evenly spaced step-size for printing results
+  delta           t-radius for estimation of (R,M)
+  eps             initial solution-space-radius for estimation of (R,M)
+  R_scale         proceed with each big-step only (<R-scale>)*R int
+
+  x               final t to stop the iteration at (or around)
+  path/to/coeffs  coefficients of the flow function in the format '<d> (<nu> <k> <i1> ... <id>)*'
+  iv*             initial values at t=0
+
+  step-size-alg   0: Lipschitz, >0: Taylor model with recentering
+  R_steps         recompute (R,M) only every R_steps (i.e decrease R to R*(1-R_scale) )
+  sweepto         0: traditional, 1: to left monomial
+  prcdiff         #steps to increase the precision of the TM centers
+
+
+
+examples:
+
+echo 30 1/32 4   1 0.35 10   examples/vdp-3.coeff  1 1    1 1 1 1 | time ./PIVP
+echo 30 10   4   1 0.35 10   examples/tan.coeff    0      1 1 1 1 | time ./PIVP
+echo 30 1/32 100 1 0.35 1000 examples/sincos.coeff 0 1    1 1 1 1 | time ./PIVP |& tee sincos.result
+echo 30 1/32 10  1 0.35 1000 examples/lorenz-classical.coeff 3 4 5   1 1 1 1 | time ./PIVP |& tee lorenz-classical.result
+echo 30 1/32 10  1 0.35 1000 examples/3body2d.coeff 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15  1 1 1 1 | time ./PIVP |& tee 3body2d.result
+
