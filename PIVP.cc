@@ -376,7 +376,7 @@ static REAL parse_REAL(const char *s)
 	else if (strchr(s, '/'))
 		return RATIONAL(s);
 	else
-		return s;
+		return REAL(s);
 }
 
 POLYNOMIAL_FLOW read_poly_flow(const char *fname)

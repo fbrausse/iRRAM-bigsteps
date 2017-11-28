@@ -185,7 +185,7 @@ c_int square3(const c_int & x){
 }
 
 c_int square(const c_int & x){
-  return c_int(square(x._Ireal)-square(x._Iimag),2*(x._Ireal*x._Iimag));
+  return c_int(square(x._Ireal)-square(x._Iimag),REAL(2)*(x._Ireal*x._Iimag));
 }
 
 c_int inv2(const c_int & x){

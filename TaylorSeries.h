@@ -95,14 +95,14 @@ public:
 
 	TM eval(const REAL &x)
 	{
-		ITERATION_STACK SAVED_STACK;
-		ACTUAL_STACK.inlimit+=1;
+		single_valued code;
+
 		TM sum=REAL(0);
 		TM best=REAL(0);
 		REAL factor=1;
 		REAL error=_bound*power(_radius,_bound_type+1)/(_radius-abs(x));
 		REAL errorfactor=abs(x)/_radius;
-		iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<ACTUAL_STACK.actual_prec 
+		iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum starting with precision "<<actual_stack().actual_prec 
 		  << " at ratio "<< errorfactor.vsize.mantissa*pow(2,errorfactor.vsize.exponent)<<"\n";});
 
 		sizetype sum_error,trunc_error,best_error,error_info;

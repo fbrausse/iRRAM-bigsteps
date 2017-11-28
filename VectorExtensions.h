@@ -11,8 +11,8 @@ FUNCTION<std::vector<TM>,P...> lipschitzify(
 ) {
 	single_valued code_1; 
 
-	if (on_domain(x) != true)
-		REITERATE(0);
+	if (!on_domain(x))
+		iRRAM_REITERATE(0);
 
 	std::vector<TM> x_new(x.size());
 	sizetype arg_error;
@@ -79,7 +79,8 @@ std::vector<REAL> lipschitz_maxnorm (
 {
   single_valued code_1; 
 
-  if ( on_domain(x) != true ) REITERATE(0);
+  if (!on_domain(x))
+    iRRAM_REITERATE(0);
   REAL lip_bound=lip_f(x);
   cerr << "# lip_bound = "<< lip_bound<< "\n";
 
