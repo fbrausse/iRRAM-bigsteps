@@ -3,7 +3,7 @@
 #include <list>
 #include <cassert>
 #include "iRRAM/limit_templates.h"
-#include "extension-vector-2.h"
+#include "VectorExtensions.h"
 
 #include <sys/time.h>
 #include <cstdarg>

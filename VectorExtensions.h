@@ -1,20 +1,21 @@
-#include "iRRAM/core.h"
+
+#include <iRRAM/core.h>
 
 namespace iRRAM {
 
-template <typename... P>
-FUNCTION<std::vector<TM>,P...> lipschitzify(
-	const FUNCTION<FUNCTION<std::vector<TM>,P...>,std::vector<TM>> &f,
-	const FUNCTION<REAL,std::vector<TM>,P...> &lip_f,
-	const FUNCTION<LAZY_BOOLEAN,std::vector<TM>> &on_domain,
-	const std::vector<TM> &x
+template <typename T,typename... P>
+FUNCTION<std::vector<T>,P...> lipschitzify(
+	const FUNCTION<FUNCTION<std::vector<T>,P...>,std::vector<T>> &f,
+	const FUNCTION<REAL,std::vector<T>,P...> &lip_f,
+	const FUNCTION<LAZY_BOOLEAN,std::vector<T>> &on_domain,
+	const std::vector<T> &x
 ) {
 	single_valued code_1; 
 
 	if (!on_domain(x))
 		iRRAM_REITERATE(0);
 
-	std::vector<TM> x_new(x.size());
+	std::vector<T> x_new(x.size());
 	sizetype arg_error;
 	{
 		sizetype_exact(arg_error);
@@ -22,21 +23,21 @@ FUNCTION<std::vector<TM>,P...> lipschitzify(
 		for (unsigned int i=0;i<x.size();i++) {
 			sizetype x_error;
 			DYADIC x_center;
-			x[i].to_real().to_formal_ball(x_center,x_error);
-			x_new[i]=TM(REAL(x_center));
+			to_formal_ball(x[i], x_center,x_error);
+			x_new[i]=T(x_center);
 			sizetype_max(arg_error,x_error,arg_error);
 		}
 	}
 
 	cerr << "starting function lipschitz_maxnorm\n";
 
-	FUNCTION<std::vector<TM>,P...> fl;
+	FUNCTION<std::vector<T>,P...> fl;
 	{
 		fl = f(x_new);
 	}
 
 	return from_algorithm(
-		std::function<std::vector<TM>(const P &...)>(
+		std::function<std::vector<T>(const P &...)>(
 			[fl,lip_f,arg_error,x](const P &... p)
 			{
 				single_valued code_1; 
@@ -44,7 +45,7 @@ FUNCTION<std::vector<TM>,P...> lipschitzify(
 				REAL lip_bound = lip_f(x,p...);
 				cerr << "# lip_bound = "<< lip_bound<< "\n";
 
-				std::vector<TM> lip_result;
+				std::vector<T> lip_result;
 				{
 					lip_result = fl(p...);
 				}
@@ -55,7 +56,7 @@ FUNCTION<std::vector<TM>,P...> lipschitzify(
 				sizetype_mult(lip_error,lip_size,arg_error);
 
 				for (unsigned int i=0;i<lip_result.size();i++) {
-					lip_result[i].c0.adderror(lip_error);
+					adderror(lip_result[i], lip_error);
 				}
 
 				return lip_result;

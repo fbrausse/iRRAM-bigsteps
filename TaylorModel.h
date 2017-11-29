@@ -111,6 +111,13 @@ public:
 		return s + c0;
 	}
 
+	friend void adderror(TM &tm, const sizetype &err) { adderror(tm.c0, err); }
+
+	friend void to_formal_ball(const TM &tm, DYADIC &center, sizetype &err)
+	{
+		to_formal_ball((REAL)tm, center, err);
+	}
+
 	// explicit cast from a TM to a REAL
 	explicit inline operator REAL(void) const {
 		return to_real();
