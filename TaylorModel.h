@@ -118,6 +118,8 @@ public:
 		to_formal_ball((REAL)tm, center, err);
 	}
 
+	friend sizetype geterror(const TM &tm) { return geterror((REAL)tm); }
+
 	// explicit cast from a TM to a REAL
 	explicit inline operator REAL(void) const {
 		return to_real();
@@ -385,6 +387,18 @@ ok:;
 	friend TM operator-(const TM &q, const TM &r)   { return TM(q) -= r; }
 	friend TM operator*(const TM &q, const REAL &r) { return TM(q) *= r; }
 
+	friend TM square(const TM &q)
+	{
+		TM f(square(q.c0));
+		f.c.reserve(q.c.size());
+		for (const I &i : q.c) {
+			REAL c = square(i.ci) + q.c0 * i.ci;
+			for (const I &j : q.c)
+				if (i.id != j.id)
+					c += i.ci * j.ci;
+			f.c.push_back(I({i.id,move(c)}));
+		}
+	}
 
 	friend orstream & operator<<(orstream &o, const TM &p)
 	{
