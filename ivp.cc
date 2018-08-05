@@ -12,7 +12,7 @@
 # define METHOD_PICARD	0
 #endif
 
-#define dbg(...)	iRRAM_DEBUG2(2,__VA_ARGS__)
+#define dbg(fmt,...)	iRRAM_DEBUG2(2,fmt,__VA_ARGS__)
 
 unsigned int max_taylor_coeff=0; // only statistical purpose!
 unsigned int last_taylor_coeff=0; // only statistical purpose!
@@ -599,10 +599,10 @@ class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<std::vector<REAL>,uns
 			dbg("k = %d, l_ = %d", idx[_dimension],  l_);
 
 			if (l_ < 0) {
-				dbg("skipped: l_ < 0\n");
+				dbg("%s","skipped: l_ < 0\n");
 				continue;
 			}
-			dbg("\n");
+			dbg("%s","\n");
 
 			REAL c = _flow(nu, idx);
 			if (l_ == 0) {
@@ -891,10 +891,10 @@ public:
 			dbg("k = %d, l_ = %d", idx[_dimension],  l_);
 
 			if (l_ < 0) {
-				dbg("skipped: l_ < 0\n");
+				dbg("%s","skipped: l_ < 0\n");
 				continue;
 			}
-			dbg("\n");
+			dbg("%s","\n");
 
 			REAL c = _flow(nu, idx);
 
