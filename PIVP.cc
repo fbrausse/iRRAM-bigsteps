@@ -1138,14 +1138,43 @@ struct Smallstep_Control {
 	}
 };
 
+template <bool picard,typename R>
+static FUNCTION<std::vector<R>,REAL> bigstep(
+	const std::vector<R> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+);
 
-static FUNCTION<std::vector<TM>,REAL> bigstep(
+template <>
+FUNCTION<std::vector<REAL>,REAL> bigstep<true,REAL>(
+	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+) {
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+
+	a = ivp_solver_picard(F, w, false);
+	return taylor_sum(a, R2, M2);
+}
+
+template <>
+FUNCTION<std::vector<REAL>,REAL> bigstep<false,REAL>(
+	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+) {
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+
+	a = ivp_solver_recursive(F, w, false);
+	return taylor_sum(a, R2, M2);
+}
+
+template <>
+FUNCTION<std::vector<TM>,REAL> bigstep<false,TM>(
 	const std::vector<TM> &w, const POLYNOMIAL_FLOW &F,
 	const REAL &R2, const REAL &M2
 ) {
 	FUNCTION<std::vector<TM>,unsigned int> a;
-	a=ivp_solver_recursive(F, w, false);
-	return taylor_sum(a, R2, M2,0);
+
+	a = ivp_solver_recursive(F, w, false);
+	return taylor_sum(a, R2, M2);
 }
 
 
@@ -1253,7 +1282,7 @@ void plot_output(const Input &in)
 			taylor = taylor_sum(a, R2, M2,0);
 		} else {
 
-			auto bs = std::bind(bigstep, std::placeholders::_1,
+			auto bs = std::bind(bigstep<false,TM>, std::placeholders::_1,
 			                    std::cref(F), std::cref(Ro), std::cref(M2));
 
 			std::function<FUNCTION<std::vector<TM>,REAL>(const std::vector<TM> &)> bsf = bs;
