@@ -779,9 +779,10 @@ public:
 struct F_REAL {
 	TM x;
 	bool valid;
+	bool is_zero;
 
-	inline F_REAL() : valid(false) {}
-	inline explicit F_REAL(const TM &v) : x(v), valid(true) {}
+	inline F_REAL() : valid(false), is_zero(false) {}
+	inline explicit F_REAL(int v) : x(REAL(v)), valid(true), is_zero(v == 0) {}
 
 /***************************************************************
  *  Usage of the below stuff indeed slows down the computation *
@@ -939,7 +940,7 @@ public:
 		F_REAL &r = _a[nu][i][n];
 		if (r.valid != true) {
 			if (i == 0) {
-				r = F_REAL(REAL((n == 0) ? 1 : 0));
+				r = F_REAL((n == 0) ? 1 : 0);
 			} else if (i == 1) {
 				/* Assumption: n > 0 since for n=0, a_{\nu,n} is
 				 * valid since it is the \nu-th component of the
@@ -965,10 +966,11 @@ public:
 		for (unsigned nu = 0; nu < _dimension; nu++) {
 			_a[nu].resize(2);
 			_a[nu][0].resize(1);
-			_a[nu][0][0] = F_REAL(REAL(1));
+			_a[nu][0][0] = F_REAL(1);
 			_a[nu][1].resize(1);
 			_a[nu][1][0].x = w[nu];
 			_a[nu][1][0].valid = true;
+			_a[nu][1][0].is_zero = iv_is_zero;
 		}
 	}
 
