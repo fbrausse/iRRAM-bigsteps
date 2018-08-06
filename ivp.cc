@@ -1,12 +1,15 @@
-#include "iRRAM.h"
+
+#include <iRRAM.h>
 #include <vector>
 #include <list>
 #include <cassert>
-#include "iRRAM/limit_templates.h"
-#include "VectorExtensions.h"
+#include <iRRAM/limit_templates.h>
 
 #include <sys/time.h>
 #include <cstdarg>
+
+#include "Polynomials.h"
+#include "VectorExtensions.h"
 
 #ifndef METHOD_PICARD
 # define METHOD_PICARD	0
@@ -186,8 +189,6 @@ inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
 
 //********************************************************************************
 //********************************************************************************
-
-#include "Polynomials.h"
 
 class POLYNOMIAL_FLOW {
 public:

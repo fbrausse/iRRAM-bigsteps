@@ -24,11 +24,11 @@ MA 02111-1307, USA.
 
 
 
-#include "iRRAM.h"
+#include <iRRAM.h>
 #include <vector>
 #include <list>
 #include <cassert>
-#include "iRRAM/limit_templates.h"
+#include <iRRAM/limit_templates.h>
 
 #include <sys/time.h>
 #include <cstdarg>
@@ -38,7 +38,6 @@ MA 02111-1307, USA.
 #include "TaylorModel.h"
 #include "TaylorSeries.h"
 #include "VectorExtensions.h"
-#include "tm2.h"
 
 #define dbg(fmt, ...) iRRAM_DEBUG0(2,{fprintf(stderr, (fmt), ##__VA_ARGS__);})
 
