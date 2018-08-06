@@ -284,6 +284,7 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 	in >> dimension;
 
 	POLYNOMIAL_FLOW F(dimension);
+
 	std::vector<unsigned> ik(dimension+1);
 	std::string s;
 	unsigned line = 1, column = 0;

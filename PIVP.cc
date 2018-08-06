@@ -44,10 +44,6 @@ MA 02111-1307, USA.
 using namespace iRRAM;
 
 
-
-
-
-
 class POLYNOMIAL_FLOW {
 public:
 	typedef VI I_type;
@@ -287,7 +283,6 @@ public:
 		}
 	}
 
-
 	void get_RM3(
 		const std::vector<TM>& w_tm,
 		const REAL &t,
@@ -440,7 +435,6 @@ public:
 		Ro = R_opt;
 		Lo = L_opt;
 	}
-
 
 private:
 	unsigned _d;
@@ -709,7 +703,8 @@ static void print_iterator(const Flow &F)
 			cout << "} = " << out << ", i != 0: " << i_ne0 << "\n";
 		}
 	}
-	for (unsigned nu=0; nu<F.dimension(); nu++) cout << "#RHS     : "<< F.poly[nu] << "\n";
+	for (unsigned nu=0; nu<F.dimension(); nu++)
+		cout << "#RHS     : " << F.poly[nu] << "\n";
 	cout << "## autonomous: " << (F.is_autonomous() ? "true" : "false") << "\n";
 	assert(F.is_autonomous());//Jacobian not correct for non-autonomous!
 }
