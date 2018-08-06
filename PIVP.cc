@@ -505,13 +505,72 @@ struct Timer {
 
 
 struct F_REAL {
-	bool valid;
 	TM x;
+	bool valid;
 
 	inline F_REAL() : valid(false) {}
-	inline explicit F_REAL(const TM &v) : valid(true), x(v) {}
-};
+	inline explicit F_REAL(const TM &v) : x(v), valid(true) {}
 
+/***************************************************************
+ *  Usage of the below stuff indeed slows down the computation *
+ ***************************************************************
+
+	inline explicit F_REAL(const REAL &v, bool is_zero = false)
+	: x(v), valid(true), is_zero(is_zero) {}
+
+	inline F_REAL operator+(const F_REAL &b) const
+	{
+		return is_zero ? b : b.is_zero ? *this : F_REAL(x + b.x);
+	}
+
+	inline F_REAL & operator+=(const F_REAL &b)
+	{
+		if (b.is_zero)
+			return *this;
+		if (is_zero)
+			*this = b;
+		else
+			x += b.x;
+		return *this;
+	}
+
+	inline F_REAL operator*(const F_REAL &b) const
+	{
+		return is_zero || b.is_zero ? F_REAL(0) : F_REAL(x * b.x);
+	}
+
+	inline F_REAL & operator*=(const F_REAL &b)
+	{
+		if (is_zero)
+			return *this;
+		if (b.is_zero)
+			*this = b;
+		else
+			x *= b.x;
+		return *this;
+	}
+
+	inline F_REAL operator/(const F_REAL &b) const
+	{
+		return is_zero ? F_REAL(0) : F_REAL(x / b.x);
+	}
+
+	inline F_REAL & operator/=(const F_REAL &b)
+	{
+		if (!is_zero)
+			x /= b.x;
+		return *this;
+	}
+
+	inline F_REAL & operator=(const F_REAL &b)
+	{
+		x = b.x;
+		valid = b.valid;
+		is_zero = b.is_zero;
+		return *this;
+	}
+*/
+};
 
 template <typename F>
 class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<TM>,unsigned int > {
