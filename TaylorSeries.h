@@ -1,7 +1,7 @@
 #ifndef iRRAM_TaylorSeries_H
 #define iRRAM_TaylorSeries_H
 
-#include "iRRAM.h"
+#include <iRRAM/lib.h>
 #include <vector>
 #include "TaylorModel.h"
 #include "ComplexIntervals.h"
@@ -110,10 +110,7 @@ public:
 
 		sizetype sum_error,trunc_error,best_error,error_info;
 
-		sizetype a,b;
-		error.geterror(a);
-		error.getsize(b);
-		sizetype_add(best_error,a,b);
+		sizetype_add(best_error,error.vsize,error.error);
 		int best_index=-1;
 
 		for (unsigned int i=0;;i++){
@@ -121,20 +118,17 @@ public:
 // 	cerr << c<<" c "<<i<<"\n";
 // 	cerr << i<< " coeff: "<< c.to_real() <<"\n\n";
 			sum= sum + c*factor;
-// 	cerr << sum<<" sum "<<i<<"\n";
-			factor=factor*x;
-
 			error= error*errorfactor;
-
+			factor=factor*x;
+//	cerr << "sum    "<< sum << "\n";
+//	cerr << "factor "<< factor << "\n";
 			  if ( i > _bound_type) {
 			    REAL corrective = error;
 			    for (unsigned j=1; j<=_bound_type;j++) corrective/=int(i+j);
 			    sum.to_real().geterror(sum_error);
+//			    sum.geterror_info(error_info);
 			    sum.c0.geterror(error_info);
-			    sizetype a,b;
-			    corrective.geterror(a);
-			    corrective.getsize(b);
-			    sizetype_add(trunc_error,a,b);
+			    sizetype_add(trunc_error,corrective.vsize,corrective.error);
 
 // test: how fast will things be is we assume the truncation error to be smaller than the current
 // term?
@@ -142,23 +136,20 @@ public:
 			
 			    sizetype local_error;
 			    sizetype_add(local_error,trunc_error,sum_error);
-//			    if (sizetype_less(local_error,best_error)) {
-			    if ( true ) {
+			    if (sizetype_less(local_error,best_error)) {
 				best=sum;
 				best_error=local_error;
 				best.c0.adderror(trunc_error);
 				best_index=i;
 			    }
-			    sizetype_set(error_info,1,error_info.exponent);
-			    if ( sizetype_less(trunc_error,error_info) 
-//			      || trunc_error.exponent <= sum.c0.vsize.exponent-80+ACTUAL_STACK.actual_prec
-			    ) {
+sizetype_shift(trunc_error,trunc_error,20);
+			    if (// trunc_error.exponent<ACTUAL_STACK.actual_prec ||
+			      sizetype_less(trunc_error,error_info)) {
 				 iRRAM_DEBUG0(2,{cerr << "FUNCTIONAL_taylor_sum: stop at "
 						<<i<< " with best at "<<best_index<<"\n";});
 				if (i>iRRAM_DEBUG_max_taylor_coeff) iRRAM_DEBUG_max_taylor_coeff=i; // only statistical purpose!
 				iRRAM_DEBUG_last_taylor_coeff = i;
-//				cerr << sum<<" summe "<< i<< "\n";
-//				cerr << best<<" best "<< best_index<< "\n";
+//				best.show();
 				break;
 			    }
 			}
