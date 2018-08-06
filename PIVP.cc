@@ -38,10 +38,11 @@ MA 02111-1307, USA.
 #include "TaylorSeries.h"
 #include "VectorExtensions.h"
 
-#define dbg(fmt, ...) iRRAM_DEBUG0(2,{fprintf(stderr, (fmt), ##__VA_ARGS__);})
-
+#define dbg(fmt,...)	iRRAM_DEBUG2(2,fmt,__VA_ARGS__)
 
 using namespace iRRAM;
+using std::vector;
+using std::pair;
 
 
 class POLYNOMIAL_FLOW {
@@ -640,10 +641,10 @@ public:
 			dbg("k = %d, l_ = %d", idx[_dimension],  l_);
 
 			if (l_ < 0) {
-				dbg("skipped: l_ < 0\n");
+				dbg("%s","skipped: l_ < 0\n");
 				continue;
 			}
-			dbg("\n");
+			dbg("%s","\n");
 
 			REAL c = _flow(nu, idx); /* TODO: TM? */
 
@@ -726,6 +727,7 @@ public:
 		//t.stop();
 		//fprintf(stderr, "n: %u,\tt: %luµs   \r", n, t.t);
 		//fflush(stderr);
+
 		return result;
 	}
 };
@@ -937,7 +939,10 @@ void plot_output(const Input &in)
 				cout << "\n" << std::flush;
 			}
 		}
-
+#if 0
+		// w = taylor(delta_t);
+		current_t = current_t + delta_t;
+#else
 		REAL old_t = current_t;
 		{
 			DYADIC_precision dyadic_prec(size(R2)-20);
@@ -947,6 +952,10 @@ void plot_output(const Input &in)
 		std::vector<TM> w_old = w;
 
 		w = taylor(current_t-old_t);
+#endif
+		/*
+		for (REAL &wj : w)
+			wj = approx(wj, -24);*/
 
 		if (it % in.R_steps == 0) {
 			cerr << "# t = " <<swrite(old_t,15,iRRAM_float_show)
