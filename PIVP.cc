@@ -113,6 +113,7 @@ public:
 		assert(nu < _d);
 		assert(coeff.ik.size() == _d + 1);
 		c[nu].push_back(coeff);
+		poly[nu].add_coeff(coeff);
 		for (unsigned j=0; j<=_d; j++)
 			_mu = std::max(_mu, coeff.ik[j]);
 		if (coeff.ik[_d] != 0)
@@ -407,8 +408,6 @@ POLYNOMIAL_FLOW read_poly_flow(const char *fname)
 			{ column = 3+dimension; msg = "real number c_{nu,k,i_1,...,i_d}"; goto err; }
 
 		F.add_coeff(nu, VI(parse_REAL(s.c_str()), ik));
-		F.poly[nu].add_coeff({ ik, parse_REAL(s.c_str())});
-		
 	}
 
 	return F;
