@@ -33,7 +33,6 @@ MA 02111-1307, USA.
 #include <sys/time.h>
 #include <cstdarg>
 
-#include "ComplexIntervals.h"
 #include "Polynomials.h"
 #include "TaylorModel.h"
 #include "TaylorSeries.h"
