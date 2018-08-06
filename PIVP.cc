@@ -505,6 +505,277 @@ struct Timer {
 
 
 
+template <typename F>
+class FUNCTIONAL_ivp_solver_auto :public FUNCTIONAL_object<std::vector<REAL>,unsigned int >
+{
+	F _flow;
+
+/* The vector a[nu][i] contains an initial segment of the Taylor coefficients
+   for (y_nu)^i.
+   As soon as taylor[nu][i][1] is computed, we will also compute 
+   a[nu][j][i] for as many values i (<=j) as needed by the flow.
+*/
+	std::vector< std::vector< std::vector<REAL> > >a;
+
+	unsigned int _dimension;
+	const bool iv_is_zero;
+
+
+	REAL a_vector_power(const std::vector<int> &n, const typename F::iterator_type &i) const {
+		REAL ergebnis = REAL(1);
+		for (unsigned int nu = 0; nu < _dimension; nu++) {
+			ergebnis *= a[nu][i[nu]][n[nu]];
+		}
+		return ergebnis;
+	}
+
+	inline void combination_recursive(std::vector<int> &n, unsigned j, REAL &sum, const typename F::iterator_type &idx, unsigned l) const
+	{
+		if (j == n.size() -1) {
+			n[j] = (iv_is_zero ? idx[j] : 0) + l;
+			sum += a_vector_power(n, idx);
+			return;
+		}
+
+		if (idx[j] == 0) {
+			n[j] = 0;
+			combination_recursive(n, j+1, sum, idx, l);
+		} else {
+			for (unsigned k=0; k <= l; k++) {
+				n[j] = (iv_is_zero ? idx[j] : 0) + k;
+				combination_recursive(n, j+1, sum, idx, l-k);
+			}
+		}
+	}
+
+	inline void combination_recursive2(const REAL &mul, unsigned j, unsigned d, REAL &sum, const typename F::iterator_type &idx, unsigned l) const
+	{
+		if (j == d) {
+			if (l == 0)
+				sum += mul;
+			return;
+		}
+
+		if (idx[j] == 0) {
+			combination_recursive2(mul, j+1, d, sum, idx, l);
+		} else {
+			for (unsigned k = 0; k <= l; k++)
+				combination_recursive2(mul * a[j][idx[j]][(iv_is_zero ? idx[j] : 0)+k], j+1, d, sum, idx, l-k);
+		}
+	}
+
+	inline void combination_recursive3(
+		const REAL &mul,
+		unsigned j,
+		unsigned d,
+		REAL &sum,
+		const std::vector<int> &i,
+		const typename F::iterator_type &idx,
+		unsigned l
+	) const {
+		if (j == d-1) {
+			unsigned k = l;
+			sum += mul * a[i[j]][idx[i[j]]][(iv_is_zero ? idx[i[j]] : 0)+k];
+		} else {
+			for (unsigned k = 0; k <= l; k++) {
+				combination_recursive3(mul * a[i[j]][idx[i[j]]]
+				[(iv_is_zero ? idx[i[j]] : 0)+k], j+1, d, sum, i, idx, l-k);
+			}
+		}
+	}
+
+	REAL auto_ivp_38(unsigned int nu, int l) const
+	{
+		REAL sum(0);
+
+		std::vector<int> n;
+		std::vector<int> n_;
+		n.resize(_dimension);
+		n_.resize(_dimension);
+
+		dbg("auto_ivp(nu=%u, l=%u)\n", nu, l);
+		for (typename F::iterator_type idx = _flow.iterator(nu, l); idx; ++idx) {
+			unsigned i;
+
+			if (_flow.mu() >= 0) {
+				for (i=0; i<=_dimension; i++)
+					if (_flow.mu() < idx[i]) /* XXX: problem for FLOW_PROXY when we get mu dependant on nu */
+						break;
+				if (i <= _dimension) {
+					for (unsigned j=0; j<_dimension; j++)
+						dbg("i_%u = %d, ", j+1, idx[j]);
+					dbg("skipped: idx[%u] = %d > %d = mu\n",
+						i, idx[i], _flow.mu());
+					continue;
+				}
+			}
+
+			int l_ = l - idx[_dimension];
+			if (iv_is_zero)
+				for (unsigned j=0; j<_dimension; j++)
+					l_ -= idx[j];
+
+			for (unsigned j=0; j<_dimension; j++)
+				dbg("i_%u = %d, ", j+1, idx[j]);
+			dbg("k = %d, l_ = %d", idx[_dimension],  l_);
+
+			if (l_ < 0) {
+				dbg("%s","skipped: l_ < 0\n");
+				continue;
+			}
+			dbg("%s","\n");
+
+			REAL c = _flow(nu, idx);
+			if (l_ == 0) {
+				for (unsigned j=0; j<_dimension; j++)
+					n[j] = iv_is_zero ? idx[j] : 0;
+				sum += c * a_vector_power(n, idx);
+				continue;
+			}
+
+			REAL sum_a_ni = 0;
+#if 0
+			combination_recursive(n_, 0, sum_a_ni, idx, l_);
+#elif 0
+			combination_recursive2(REAL(1), 0, _dimension, sum_a_ni, idx, l_);
+#else
+			unsigned j=0;
+			for (unsigned i=0; i<_dimension; i++)
+				if (idx[i] > 0)
+					n[j++] = i;
+			if (j == 0)
+				sum_a_ni = 0;
+			else
+				combination_recursive3(REAL(1), 0, j, sum_a_ni, n, idx, l_);
+#endif
+			sum += c * sum_a_ni;
+		}
+
+		return sum/(l+1);
+	}
+
+	/* berechnet a_{\nu,n}^{(i+1)} */
+	REAL a37part2(unsigned nu, unsigned n, unsigned i)
+	{
+		REAL sum(0);
+		for (unsigned j=0; j<=n; j++)
+			sum += a[nu][1][j] * a[nu][i][n-j];
+		return sum;
+	}
+
+public:
+	FUNCTIONAL_ivp_solver_auto(const F &flow, const std::vector<REAL> &w, bool iv_is_zero)
+	: _flow(flow), iv_is_zero(iv_is_zero)
+	{
+		_dimension = _flow.dimension();
+
+		a.resize(_dimension);
+		for (unsigned int nu = 0; nu < _dimension; nu++) {
+			a[nu].resize(2);
+			a[nu][0].resize(1);
+			a[nu][0][0] = REAL(1);
+			a[nu][1].resize(1);
+			a[nu][1][0] = w[nu];
+		}
+	}
+
+	~FUNCTIONAL_ivp_solver_auto() {}
+
+	const vector<vector<vector<REAL>>> & get_a() const { return a; }
+
+	/* |{(n_1,...,n_d): n_k>=i_k, \sum_k n_k=l}| = (d+l'-1 choose d-1)
+	 * mit l' = l - \sum_k i_k
+	 *
+	 * gibt die Anzahl Summanden für a_{\nu,l+1} für ein (i_1,...,i_d) an.
+	 */
+
+	std::vector<REAL> eval(const unsigned int & n)
+	{
+		unsigned l_old = a[0][0].size()-1;
+		unsigned max_power = (_flow.mu() < 0) ? n : _flow.mu();
+
+		for (unsigned int nu = 0; nu < _dimension; nu++) {
+			if (max_power >= a[nu].size())
+				a[nu].resize(max_power + 1);
+			for(unsigned int j = 0; j < a[nu].size(); j++)
+				if(a[nu][j].size() < n+1)
+					a[nu][j].resize(n+1);
+		}
+
+		for (unsigned int l = l_old; l < n; l++) {/*
+			fprintf(stderr,
+				"l: %u, auto: %luµs, rest0: %luµs, rest1: %luµs   \r",
+				l, t_auto.t, t_rest0.t, t_rest1.t);
+			fflush(stderr);
+			t_auto.t = t_rest0.t = t_rest1.t = 0;*/
+			for (unsigned int nu = 0; nu < _dimension; nu++) {
+				/* Um in der nächsten äußeren Iteration
+				 * a_{\nu,l+1} berechnen zu können, benötigen
+				 * wir a_{j,k}^{(i)} mit 1<=j<=d, 0<=k<=l und
+				 *             _
+				 *            /  l, falls µ < 0
+				 * 0 <= i <= <
+				 *            \_ µ, sonst.
+				 *
+				 * Berechne also in aktueller Iteration (l,nu)
+				 * a_{nu,k}^{(i)} wie unten mit 'x' dargestellt.
+				 *
+				 * µ < 0:             bzw.  µ >= 0:
+				 * ~~~~~~                   ~~~~~~~
+				 *    |      l                 |      l
+				 * ---+------+------> k     ---+-------------> k
+				 *    |      x                 |      x
+				 *    |      x                 |      x
+				 *    |      x                 |      x
+				 *  l +xxxxxxx                 |      x
+				 *    |                      µ +      x
+				 *    |                        |
+				 *    v                        v
+				 * 
+				 *    i                        i
+				 */
+
+				unsigned int i, k;                  /* (3.7) Teil 2 */
+				
+				/* TODO: Vertauschen der Indizierung a[nu][i][k]
+				 *       zu a[nu][k][i] wg. Zugriffsgeschwindigkeit
+				 *       in Schleife for (i=2; i<=i_max; i++)
+				 */
+
+				//t_rest0.start();
+				k = l;
+				unsigned i_max = _flow.mu() >= 0 ? _flow.mu()
+				                                 : std::min(max_power, l);
+				for (i=2; i <= i_max; i++)
+					a[nu][i][k] = a37part2(nu, k, i-1);
+				//t_rest0.stop();
+
+				//t_rest1.start();
+				if (_flow.mu() < 0) {
+					i = l;
+					if (i <= max_power) {
+						for (k=0; k< l; k++) /* "<" because we already have a[nu][i][l], see above */
+							a[nu][i][k] = a37part2(nu, k, i-1);
+					}
+				}
+				//t_rest1.stop();
+
+				a[nu][0][l+1] = 0;                  /* (3.7) Teil 1 */
+				//t_auto.start();
+				a[nu][1][l+1] = auto_ivp_38(nu, l); /* (3.8) */
+				//t_auto.stop();
+			}
+		}
+
+		std::vector<REAL> result(_dimension);
+		for (unsigned int nu = 0; nu < _dimension; nu++) {
+			result[nu] = a[nu][1][n];
+			iRRAM_DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
+		}
+		return result;
+	}
+};
+
 struct F_REAL {
 	TM x;
 	bool valid;
@@ -732,6 +1003,68 @@ public:
 	}
 };
 
+class FUNCTIONAL_IVP_SOLVER_PICARD : public FUNCTIONAL_object<std::vector<REAL>,unsigned int> {
+public:
+	const POLYNOMIAL_FLOW F;
+	/* p[n][nu] */
+	std::vector<std::vector<POLYNOMIAL<REAL>>> p;
+	unsigned n = 0;
+
+	const std::vector<REAL> w;
+	const bool iv_is_zero;
+
+	FUNCTIONAL_IVP_SOLVER_PICARD(
+		const POLYNOMIAL_FLOW &F,
+		const std::vector<REAL> &w,
+		bool iv_is_zero
+	) : F(F), p(1), w(w), iv_is_zero(iv_is_zero)
+	{
+		p[0].resize(F.dimension());
+		for (unsigned nu=0; nu<F.dimension(); nu++)
+			p[0][nu].set_coeff(0, w[nu]);
+	}
+
+	~FUNCTIONAL_IVP_SOLVER_PICARD() {}
+
+	void step()
+	{
+		/* p(t) <- w + \int_0^t F(s,p(s)) mod s^n ds */
+		REAL t0 = 0;
+		unsigned d = F.dimension();
+		p.resize(n+2);
+		std::vector<POLYNOMIAL<REAL>> &r = p[n+1];
+		r.resize(d);
+		for (unsigned nu=0; nu<d; nu++) {
+			for (auto it = F.iterator(nu, F.mu()); it; ++it) {
+				POLYNOMIAL<REAL> p/*(F(nu,it))*/;
+				p.set_coeff(it->ik[d], F(nu, it)); /* constant poly: c_{\nu,k,i} */
+				for (unsigned xi : it->idx_i_gt0) {
+					POLYNOMIAL<REAL> q;
+					q.set_coeff(it->ik[xi], 1);
+					p *= q(this->p[n][xi]);
+				}
+				r[nu] += imod(p, n+1);
+			}
+			POLYNOMIAL<REAL> q = r[nu].primitive();
+			q += POLYNOMIAL<REAL>(w[nu] - q(t0));
+			r[nu] = q;
+		}
+		n++;
+	}
+
+	std::vector<REAL> eval(const unsigned int &n)
+	{
+		std::vector<REAL> result(F.dimension());
+
+		while (this->n <= n)
+			step();
+
+		for (unsigned nu=0; nu<F.dimension(); nu++)
+			result[nu] = p[n+1][nu].degree() < n ? REAL(0) : p[n+1][nu][n];
+
+		return result;
+	}
+};
 
 template <typename F>
 inline FUNCTION<std::vector<TM>,unsigned int > ivp_solver_recursive(
@@ -742,6 +1075,22 @@ inline FUNCTION<std::vector<TM>,unsigned int > ivp_solver_recursive(
 	return new FUNCTIONAL_IVP_SOLVER_RECURSIVE<F>(flow, w, iv_is_zero);
 }
 
+inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_picard(
+	const POLYNOMIAL_FLOW &flow,
+	const std::vector<REAL> &w,
+	bool iv_is_zero
+) {
+	return new FUNCTIONAL_IVP_SOLVER_PICARD(flow, w, iv_is_zero);
+}
+
+template <typename F>
+inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_auto(
+	const F &flow,
+	const std::vector<REAL> &w,
+	bool iv_is_zero
+) {
+	return new FUNCTIONAL_ivp_solver_auto<F>(flow, w, iv_is_zero);
+}
 
 
 template <typename Flow>
