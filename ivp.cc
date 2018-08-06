@@ -168,27 +168,7 @@ public:
 		// NM, 2013-08-31
 		M = abs_w + R*UF(w,t0,R,eps);
 	}
-#if 0
-	REAL f_abs(unsigned nu, REAL x) const
-	{
-		REAL r(0);
-		for (Iterator it = iterator(nu, _mu); it; ++it) {
-			unsigned sum_i = 0;
-			for (unsigned j=0; j<dimension(); j++)
-				sum_i += it[j];
-			r += abs((*this)(nu, it)) * power(x, sum_i);
-		}
-		return r;
-	}
 
-	REAL f_max(const REAL &x) const
-	{
-		REAL m = f_abs(0, x);
-		for (unsigned nu=1; nu<dimension(); nu++)
-			m = maximum(m, f_abs(nu, x));
-		return m;
-	}
-#endif
 	REAL f_abs(unsigned nu, const std::vector<REAL> &w_abs, const REAL &s, const REAL &t) const
 	{
 		REAL r(0);

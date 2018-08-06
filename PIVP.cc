@@ -176,6 +176,28 @@ public:
 		return max_result;
 	}
 
+	void get_RM(
+		const std::vector<REAL> &w,
+		const REAL &t0,
+		const REAL &delta,
+		const REAL &eps,
+		REAL &R,
+		REAL &M
+	) const {
+		REAL _UF = UF_bruteforce(w,t0,delta,eps);
+		// cout << "U: " << _UF << "\n";
+		R = minimum(delta, eps/_UF);
+		REAL abs_w(0);
+		for (unsigned j = 0; j < w.size(); j++) {
+			abs_w += square(w[j]);
+		}
+		abs_w = sqrt(abs_w);
+		//M = abs_w + R*_UF;
+		// besser: _UF neu berechnen, aber das macht nur bei nicht-autonomen
+		// Systemen einen Unterschied
+		// NM, 2013-08-31
+		M = abs_w + R*UF_bruteforce(w,t0,R,eps);
+	}
 
 	REAL f_abs(
 		unsigned nu, const std::vector<REAL> &w_abs, const REAL &eps,
@@ -194,12 +216,75 @@ public:
 		return r;
 	}
 
-	REAL f_max(const std::vector<REAL> &w_abs, const REAL &eps, const REAL &t_abs, const REAL &delta) const
+	REAL f_max(const std::vector<REAL> &w_abs, const REAL &eps, const REAL &t_abs, const REAL &delta=0) const
 	{
 		REAL m = f_abs(0, w_abs, eps, t_abs, delta);
 		for (unsigned nu=1; nu<dimension(); nu++)
 			m = maximum(m, f_abs(nu, w_abs, eps, t_abs, delta));
 		return m;
+	}
+
+	void get_RM2(
+		std::vector<REAL> w,
+		const REAL &t0,
+		const REAL &delta,
+		REAL &eps,
+		REAL &R,
+		REAL &M, 
+	        const int step_control_alg
+	) const {
+//		stiff area(-ACTUAL_STACK.prec_step/2);
+		REAL abs_w(0);
+		for (unsigned j = 0; j < w.size(); j++) {
+			abs_w += square(w[j]);
+			w[j] = abs(w[j]);
+		}
+		REAL t = abs(t0) + delta;
+		abs_w = sqrt(abs_w);
+
+		REAL lower_sum = 0;
+		REAL rect_w = eps;
+		REAL R_simple;
+		REAL eps_simple=eps;
+		REAL eps_opt;
+		int kl=0,kr=0,ks=0;
+
+		unsigned k =100;
+		for (unsigned j=0; j<k; j++) {
+			rect_w = 9*rect_w/8;
+			REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=-j;}
+//			cout << "# stepcontrol " <<j<< " # "<<rect_w<< " : "<< tmp/9<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/9;
+			if ( tmp < lower_sum/30 || tmp< lower_sum/40) { kl=-j; break;}
+		}
+		eps_opt=rect_w;
+		rect_w = eps;
+		for (unsigned j=0; j<k; j++) {
+			REAL tmp=rect_w / f_max(w, rect_w, t);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {R_simple=tmp; eps_simple=rect_w;ks=j;}
+//			cout << "# stepcontrol " <<j<< " # " <<rect_w<< " : "<< tmp/16<< " sum: " << lower_sum << " vs. " <<  tmp<<"\n";;
+			lower_sum += tmp/16;
+			rect_w =15*rect_w/16;
+			if ( tmp < lower_sum/60 || tmp< lower_sum/70) { kr=j; break;}
+		}
+		lower_sum += rect_w / f_max(w,rect_w, t);
+
+		REAL R_opt = minimum(delta, lower_sum);
+		REAL M_opt = abs_w + eps_opt;
+		eps=eps_simple;
+		REAL M_simple=abs_w + eps_simple;
+		cout << "# Radius  " << R_opt << " vs. " <<  R_simple<<"\n";
+		cout << "# Maximum " << M_opt << " vs. " <<  M_simple<<"\n";
+		cout << "# Epsilon " << eps_opt << " vs. " <<  eps_simple<<"\n";
+		cout << "# kl/ks/kr "<< kl << " " << ks << " " <<  kr<<"\n";
+		eps=eps_simple;
+
+		if (step_control_alg) {
+			R=R_simple; M=M_simple;
+		}  else {
+			R=R_opt; M=M_opt;
+		}
 	}
 
 
