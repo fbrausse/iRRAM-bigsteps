@@ -176,45 +176,29 @@ inline FUNCTION<TM,REAL> taylor_sum (
 // 'bound' must be valid for 'radius' in each dimension
 //********************************************************************************
 
-template <typename R> class FUNCTIONAL_vector_taylor_sum;
+template <typename T>
+class FUNCTIONAL_vector_taylor_sum : public FUNCTIONAL_object<std::vector<T>,REAL> {
 
-template <>
-class FUNCTIONAL_vector_taylor_sum<TM> : public FUNCTIONAL_object<std::vector<TM>,REAL> {
-
-	REAL _radius;
-	REAL _bound;
-	unsigned _bound_type;
-	FUNCTION<std::vector<TM>,unsigned int> _coeff;
-	std::vector<FUNCTION<TM,REAL >> _f_nu;
+	std::vector<FUNCTION<T,REAL>> f;
 
 public:
 	FUNCTIONAL_vector_taylor_sum(
-		FUNCTION<std::vector<TM>,unsigned int> coeff,
+		FUNCTION<std::vector<T>,unsigned int> coeff,
 		const REAL& radius,
 		const REAL& bound,
-		const int bound_type
-	) {
-		_coeff=coeff;
-		_radius=radius;
-		_bound=bound;
-		_bound_type=bound_type;
+		unsigned bound_type=0
+	)
+	: f(coeff(0).size()) // just to get the dimension
+	{
+		for (unsigned nu=0; nu<f.size(); nu++)
+			f[nu] = taylor_sum(projection(coeff,nu), radius, bound, bound_type);
 	}
 
-	~FUNCTIONAL_vector_taylor_sum() {}
-
-	std::vector<TM> eval(const REAL& t)
+	std::vector<T> eval(const REAL& t)
 	{
-		if (_f_nu.size() == 0) { // on first call, initialize the projections
-			std::vector<TM> test = _coeff(0); // just to get the dimension
-			_f_nu.resize(test.size());
-			for (unsigned int nu=0; nu<_f_nu.size(); nu++) {
-				FUNCTION<TM,unsigned int> coeff_nu = projection(_coeff,nu);
-				_f_nu[nu] = taylor_sum(coeff_nu, _radius, _bound, _bound_type);
-			}
-		}  
-		std::vector<TM> result(_f_nu.size());
-		for (unsigned int nu=0; nu<_f_nu.size(); nu++)
-			result[nu] = _f_nu[nu](t);
+		std::vector<T> result(f.size());
+		for (unsigned int nu=0; nu<f.size(); nu++)
+			result[nu] = f[nu](t);
 		return result;
 	}
 };
@@ -328,47 +312,11 @@ public:
 inline FUNCTION<REAL,REAL> taylor_sum (
 		FUNCTION<REAL,unsigned int> coeff,
 		const REAL& radius,
-		const REAL& bound
+		const REAL& bound,
+		unsigned
 ) {
 	return new FUNCTIONAL_taylor_sum<REAL>(coeff,radius,bound);
 }
-
-//********************************************************************************
-// Class for summation of a vector of Taylor series
-// 'bound' must be valid for 'radius' in each dimension
-//********************************************************************************
-
-template <>
-class FUNCTIONAL_vector_taylor_sum<REAL> : public FUNCTIONAL_object<std::vector<REAL>,REAL> {
-
-	REAL _radius;
-	REAL _bound;
-	FUNCTION<std::vector<REAL>,unsigned int> _coeff;
-
-public:
-	FUNCTIONAL_vector_taylor_sum(
-		FUNCTION<std::vector<REAL>,unsigned int > coeff,
-		const REAL& radius,
-		const REAL& bound
-	) {
-		_coeff=coeff;
-		_radius=radius;
-		_bound=bound;
-	}
-
-	~FUNCTIONAL_vector_taylor_sum() {}
-
-	std::vector<REAL> eval(const REAL& t)
-	{
-		std::vector<REAL> result=_coeff(0); // just to get the dimension
-		for (unsigned int nu=0; nu<result.size(); nu++) {
-			FUNCTION<REAL,unsigned int> coeff_nu = projection(_coeff,nu);
-			FUNCTION<REAL,REAL> f_nu = taylor_sum(coeff_nu,_radius,_bound);
-			result[nu] = f_nu(t);
-		}
-		return result;
-	}
-};
 
 /********************************************************/
 /* corresponding constructor for FUNCTION		*/
@@ -377,9 +325,9 @@ inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
 		FUNCTION<std::vector<REAL>,unsigned int > coeff,
 		const REAL& radius,
 		const REAL& maximum,
-		unsigned=0
+		unsigned bound_type=0
 ) {
-	return new FUNCTIONAL_vector_taylor_sum<REAL>(coeff,radius,maximum);
+	return new FUNCTIONAL_vector_taylor_sum<REAL>(coeff,radius,maximum,bound_type);
 }
 
 
