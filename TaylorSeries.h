@@ -24,25 +24,26 @@ unsigned int iRRAM_DEBUG_last_taylor_coeff=0;
 // If include_a0==false, then the first coefficient is excluded from the sum
 
 // Perhaps Euclidean norm instead of maximum norm would be better????
-REAL poly_bound(const FUNCTION<std::vector<TM>,unsigned int> a, int max_index, const REAL &tdelta, int derive, bool include_a0) {
+template <typename T>
+REAL poly_bound(const FUNCTION<std::vector<T>,unsigned int> a, int max_index, const REAL &tdelta, int derive, bool include_a0) {
 	c_int tc=c_int(INTERVAL(-tdelta,tdelta,true),INTERVAL(-tdelta,tdelta,true));
 	
 	REAL max_result(0);
-	std::vector<TM> a0= a(0);
+	std::vector<T> a0= a(0);
 	INTEGER dfactor=1;
 	for (int i=2; i<=derive; i++) dfactor *=i;
 	for (unsigned nu=0; nu < a0.size(); nu++) {
 	      c_int res = REAL(0);
 	      INTEGER factor=dfactor;
-	      if (include_a0) res = REAL(factor)*(a0[nu].to_real());
+	      if (include_a0) res = REAL(factor)*static_cast<REAL>(a0[nu]);
 	      for (int k=1; k<=max_index; k++){
 //cerr << " next k "<<k<< "\n"; 
-		std::vector<TM> ak= a(k+derive);
+		std::vector<T> ak= a(k+derive);
 //cerr << ak[nu]<<" k "<<k<< " maxindex "<< max_index<< "\n"; 
-		REAL aknu = ak[nu].to_real(); 
+		REAL aknu(ak[nu]);
 //cerr << "chk " <<aknu << " "<< k <<" "<< nu<< " "<< mag(power(tc,k))<<  " ###\n";
 		factor=(factor*(k+derive))/k;
-		res+= REAL(factor)*(ak[nu].to_real())*power(tc,k);
+		res += REAL(factor)*static_cast<REAL>(ak[nu])*power(tc,k);
 //cerr << res._Ireal.low<< res._Ireal.upp << " +i* "<< res._Iimag.upp<< "####\n"; 
 	      }
 	      REAL mx = mag(res);
