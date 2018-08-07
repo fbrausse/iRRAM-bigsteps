@@ -1212,12 +1212,24 @@ void plot_output(const Input &in)
 		     << ", " << (t.t / 1e3) << "ms\n";
 		t.t = 0;
 		t.start();
-
+#if 0
 		F.get_RM(w, 0, in.delta, in.eps, R, M);
 		cout << "#  "<<current_t << " (R ,M ) = ( " << R << ", " << M << ")\n";
 
 		F.get_RM2(w, 0, in.delta, eps_local, R2, M2, in.step_control_alg);
 		cout << "#  " << current_t << " (R2,M2) = ( " << R2 << ", " << M2 << ")\n";
+#endif
+		REAL Lo, Rs, Ro;
+		{
+			stiff code(-5);
+			std::vector<REAL> wr(w.size());
+			for (unsigned i=0;i<w.size();i++)
+				wr[i] = static_cast<REAL>(w[i]);
+			FUNCTION<std::vector<T>,unsigned int> a
+				= ivp_solver_recursive(F, w, false);
+			F.get_RM3(w, 0, in.delta, in.R_scale, eps_local,
+			          R2, M2, Lo, Rs, Ro, a);
+		}
 
 		/* TODO: while (INTEGER(R2 * R_scale * 2**n)-1 <= 0) n++;
 		 *  und  DYADIC_precision(n) */
@@ -1238,6 +1250,28 @@ void plot_output(const Input &in)
 		cout << ")\n";
 
 #if 1
+		if (in.step_control_alg > 0) {
+			FUNCTION<std::vector<T>,unsigned int> a
+				= ivp_solver_recursive(F, w, false);
+			taylor = taylor_sum(a, R2, M2, 0);
+		} else {
+			auto bs = std::bind(bigstep<picard,T>, std::placeholders::_1,
+			                    std::cref(F), std::cref(Ro), std::cref(M2));
+
+			std::function<FUNCTION<std::vector<T>,REAL>(const std::vector<T> &)> bsf = bs;
+			auto on_domain = from_value<LAZY_BOOLEAN,std::vector<T>>(true);
+
+			auto lip_alg = [Lo](const std::vector<T>& w,const REAL& t) {
+				return Lo;
+			};
+			std::function<REAL(const std::vector<T> &,const REAL &)> lipf = lip_alg;
+
+			taylor = lipschitzify(from_algorithm(bsf),
+			                      from_algorithm(lipf),
+			                      on_domain,
+			                      w);
+		} // ! in.step_control_alg
+#elif 1
 		auto bs = std::bind(bigstep<picard,T>, std::placeholders::_1,
 		                    std::cref(F), std::cref(R2), std::cref(M2));
 		std::function<FUNCTION<std::vector<REAL>,REAL>(const std::vector<REAL> &)> bsf = bs;
