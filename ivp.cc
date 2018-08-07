@@ -146,6 +146,40 @@ public:
 		return max_result;
 	}
 
+	template <typename K2>
+	auto eval_poly(unsigned nu, const std::vector<K2> &x) const -> decltype(REAL(0) * x[0])
+	{
+		using KR = decltype(REAL(0) * x[0]);
+		assert(x.size() == d);
+		KR r = KR(REAL(0));
+		for (const I_type &i : c[nu]) {
+			K2 s = K2(REAL(1));
+			for (unsigned j=0; j<_d; j++)
+				s *= power(x[j], int(i.ik[j]));
+			r += i.c * s;
+		}
+		return r;
+	}
+
+// determine upperbound of the right hand side for complex parameters w (with eps) and t (with delta)
+	REAL UF_interval(
+		std::vector<REAL> w, const REAL &eps, REAL t, const REAL &delta
+	) const {
+		std::vector<c_int> w_int(w.size()+1);
+		for (unsigned i=0; i<w.size(); i++)
+			w_int[i] = c_int(INTERVAL(w[i]-eps,w[i]+eps,true),
+			                 INTERVAL(    -eps,     eps,true));
+		w_int[w.size()] = c_int(INTERVAL(t-delta,t+delta,true),
+		                        INTERVAL( -delta,  delta,true));
+		REAL max_result(0);
+		for (unsigned nu=0; nu<dimension(); nu++) {
+			c_int res = eval_poly(nu, w_int);
+			REAL  mx  = mag(res);
+			max_result = maximum(mx, max_result);
+		}
+		return max_result;
+	}
+
 	void get_RM(
 		const std::vector<REAL> &w,
 		const REAL &t0,
@@ -255,6 +289,159 @@ public:
 		}  else {
 			R=R_opt; M=M_opt;
 		}
+	}
+
+	void get_RM3(
+		const std::vector<TM>& w_tm,
+		const REAL &t,
+		const REAL &delta,
+		const REAL &R_scale,
+		REAL &eps,
+		REAL &R,
+		REAL &M,
+		REAL &Lo,
+		REAL &Rs,
+		REAL &Ro,
+		const FUNCTION<std::vector<TM>,unsigned int> a
+	) const {
+		std::vector<REAL> w_copy; w_copy.reserve(w_tm.size());
+		std::vector<REAL> w_abs; w_abs.reserve(w_tm.size());
+		REAL abs_w(0);
+		for (unsigned j = 0; j < w_tm.size(); j++) {
+			w_copy.push_back(w_tm[j].to_real());
+			w_abs.push_back(abs(w_copy[j]));
+///**/			abs_w=maximum(abs_w, abs(w_copy[j]));
+/**/			abs_w += square(w_copy[j]);
+		}
+
+		REAL t_abs = abs(t);
+/**/		abs_w = sqrt(abs_w);
+
+
+		REAL lower_sum = 0;
+		REAL R_simple;
+		REAL eps_opt;
+		REAL eps_simple=eps;
+		REAL eps_current = eps;
+		int test_size=100;
+		int simple=0;
+		int low=0,high=0; // the sampling fo the integral will be saved in [low..high] (including)
+
+		REAL R_delta[2*test_size];
+		REAL epstest[2*test_size]; // R_delta[j] contains \int_{epstest[j-1]}^{epstest[j]} 1/U(s) ds
+
+		REAL Rtest[2*test_size];
+		int factor=20;
+
+		for (int j=test_size;; j++) { // increasing epsilon
+			eps_current = factor*eps_current/(factor-1);
+			REAL _UF2 = UF_interval(w_copy,eps_current,t,delta);
+			REAL _UF3 = f_max(w_abs, eps_current, t_abs, delta);
+			REAL tmp = eps_current /minimum(_UF2,_UF3);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {
+				R_simple=tmp;
+				eps_simple=eps_current;
+				simple=j;
+			}
+			// R_simple: here we want to find the best combinaton radius via ordinary Picard-Lindeloef
+			// at the same time, we determine the corresponding height of the rectangle that leads to R_simple
+			lower_sum += tmp/factor;// lower_sum is just for termination!
+			R_delta[j]=tmp/factor;
+			epstest[j]=eps_current;
+
+			if ( bool(tmp < lower_sum/25 || tmp< lower_sum/30) || j>=2*test_size-1) { high=j; break;} // lower_sum is just for termination!
+		}
+//		R_delta epstest have been initialized for indices [test_size..high]
+
+		eps_opt=eps_current; // the maximal epsilon taken into account = the height of the final rectangle
+
+		eps_current = eps; // for decreasing epsilon,we again start at eps
+		for (int j=test_size-1;; j--) { // decreasing epsilon
+			REAL _UF2 = UF_interval(w_copy,eps_current,t,delta);
+			REAL _UF3 = f_max(w_abs, eps_current, t_abs, delta);
+			REAL tmp = eps_current / minimum(_UF2,_UF3);
+			if (tmp > R_simple || tmp > 999*R_simple/1000) {
+				R_simple=tmp;
+				eps_simple = eps_current;
+				simple = j;
+			}
+			// R_simple: here we want to find the best combinaton radius via ordinary Picard-Lindeloef
+			// at the same time, we determine the corresponding height of the rectangle that leads to R_simple
+			lower_sum += tmp/factor;// lower_sum is just for termination!
+			R_delta[j] = tmp/factor;
+			epstest[j] = eps_current;
+
+			eps_current = (factor-1)*eps_current/factor;
+			if (bool(tmp < lower_sum/90 || tmp< lower_sum/100) || j==1) { // lower_sum is just for termination!
+				low=j-1;
+				break;
+			}
+		}
+//		R_delta epstest have been initialized for indices [low+1..test_size-1]and [test_size..high]
+
+
+		REAL _UF2 = UF_interval(w_copy,eps_current,t,delta);
+		REAL _UF3 = f_max(w_abs, eps_current, t_abs, delta);
+		REAL tmp=eps_current / minimum(_UF2,_UF3);
+
+		R_delta[low]=tmp; //initial part, \int_{}^{epstest[j]} 1/U(s) ds
+		epstest[low]=eps_current;
+//		R_delta epstest have been initialized for indices [low..high]
+
+		REAL Rsum= 0;
+		for (int j= low;j<=high;j++){
+			Rsum+=R_delta[j];Rtest[j]=Rsum;
+		}
+
+		REAL R_opt = minimum(delta, Rsum);
+		REAL M_opt = abs_w + eps_opt;
+
+		// Now compute the Lipschitz bound L_opt for radius R_opt
+		REAL L_opt=(abs_w+epstest[high])/epstest[low];
+		{
+			int k=high,j=k-1;
+			while (j>low) {
+				if (Rtest[k]-Rtest[j] < R_scale*R_opt)
+					j--;
+				else {
+					L_opt= minimum(L_opt,(abs_w+epstest[k])/epstest[j]);
+					k--;
+				}
+			}
+		}
+		// R_simple, M_simple and eps_simple correspond to the values for ordinary Picard-Lindeloef
+		REAL M_simple=abs_w + eps_simple;
+//debug		cout << "# Radius  " << R_opt << " vs. " <<  R_simple<< " at w0: "<< w_copy[0]<< " w1: "<< w_copy[1]<<"\n";
+//debug		cout << "# Maximum " << M_opt << " vs. " <<  M_simple<< " at w0: "<< w_copy[0]<< " w1: "<< w_copy[1]<<"\n";
+//debug		cout << "# Epsilon " << eps_opt << " vs. " <<  eps_simple<< " at  w0: "<< w_copy[0]<< " w1: "<< w_copy[1]<<"\n";
+//debug		cout << "# l/s/r "<< low-test_size << " " << simple-test_size << " " <<  high-test_size<< " at  w0: "<< w_copy[0]<< " w1: "<< w_copy[1]<<"\n";
+
+		eps=eps_simple; // return eps as the initial start value for the next step
+
+
+		// Now we try to improve the radius of convergence using information about the
+		// real trajectory (that we can approximate reliably using and R_opt,M_opt
+		REAL R0 = R_opt,R2=0;
+		REAL y_delta, R_test;
+		for (int k=100; k<130; k++){
+			R_test=k*R0/150;
+			REAL yval=poly_bound(a,30,R_test,0,false);
+			REAL yerr=M_opt*R0/(R0-R_test)*power(R_test/R0,30+1);
+			y_delta= yval+yerr;
+			int i=low;
+			while ( (i<high) && bool(y_delta>epstest[i] && y_delta>epstest[i]*0.999) ) i++;
+			R2=  minimum(delta,R_test+Rtest[high]-Rtest[i]);
+//			cerr << "(R',M',R,M)= "<<R_test<<" "<< y_delta<<" "<<R2<<" "<<M_opt<<"\n";
+			R0=maximum(R2,R0);
+		}
+
+
+		R=R0;
+		M=M_opt;
+
+		Rs = R_simple;
+		Ro = R_opt;
+		Lo = L_opt;
 	}
 
 private:
