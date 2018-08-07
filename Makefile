@@ -26,7 +26,7 @@ iRRAM_LDFLAGS  = -L $(IRRAM)/lib -Wl,-rpath -Wl,$(IRRAM)/lib
 iRRAM_LDLIBS   = -lstdc++ -lm -lmpfr -lgmp -liRRAM
 iRRAM_CXXFLAGS = -I $(IRRAM)/include
 
-ivp_OBJS     = ivp.o
+ivp_OBJS     = ivp.o TaylorModel.o
 ivp_LDFLAGS  = $(iRRAM_LDFLAGS) #-pg
 ivp_LDLIBS   = $(iRRAM_LDLIBS) # -lgcov
 ivp_CXXFLAGS = $(iRRAM_CXXFLAGS) #-pg

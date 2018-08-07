@@ -1164,6 +1164,17 @@ FUNCTION<std::vector<REAL>,REAL> bigstep<false,REAL>(
 	return taylor_sum(a, R2, M2);
 }
 
+template <>
+FUNCTION<std::vector<TM>,REAL> bigstep<false,TM>(
+	const std::vector<TM> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+) {
+	FUNCTION<std::vector<TM>,unsigned int> a;
+
+	a = ivp_solver_recursive(F, w, false);
+	return taylor_sum(a, R2, M2);
+}
+
 struct Input {
 	int p;
 	Smallstep_Control ssteps;
