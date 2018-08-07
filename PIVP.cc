@@ -1460,7 +1460,6 @@ static Input read_input()
 
 void compute()
 {
-  
 	Input in = read_input();
 
 	cout << setRwidth(in.p);

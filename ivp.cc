@@ -946,15 +946,31 @@ struct Smallstep_Control {
 	}
 };
 
-template <bool picard>
-static FUNCTION<std::vector<REAL>,REAL> bigstep(
+template <bool picard,typename R>
+static FUNCTION<std::vector<R>,REAL> bigstep(
+	const std::vector<R> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+);
+
+template <>
+FUNCTION<std::vector<REAL>,REAL> bigstep<true,REAL>(
 	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
 	const REAL &R2, const REAL &M2
 ) {
 	FUNCTION<std::vector<REAL>,unsigned int> a;
 
-	a = picard ? ivp_solver_picard(F, w, false)
-	           : ivp_solver_recursive(F, w, false);
+	a = ivp_solver_picard(F, w, false);
+	return taylor_sum(a, R2, M2);
+}
+
+template <>
+FUNCTION<std::vector<REAL>,REAL> bigstep<false,REAL>(
+	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
+	const REAL &R2, const REAL &M2
+) {
+	FUNCTION<std::vector<REAL>,unsigned int> a;
+
+	a = ivp_solver_recursive(F, w, false);
 	return taylor_sum(a, R2, M2);
 }
 
@@ -967,17 +983,17 @@ struct Input {
 	int step_control_alg;
 };
 
-template <bool autonomous,bool picard>
+template <bool autonomous,bool picard,typename T>
 void plot_output(const Input &in)
 {
-	FUNCTION<std::vector<REAL>,REAL> taylor;
+	FUNCTION<std::vector<T>,REAL> taylor;
 
 	const int cmp_p = -10;
 	const int delta_t_p = -53;
 	const DYADIC end_t = approx(in.final_t, cmp_p) + scale(INTEGER(2), cmp_p);
 
 	POLYNOMIAL_FLOW F = in.F;
-	std::vector<REAL> w = in.w;
+	std::vector<T> w = in.w;
 
 	DYADIC_precision dyadic_prec(delta_t_p);
 
@@ -1030,7 +1046,7 @@ void plot_output(const Input &in)
 		cout << ")\n";
 
 #if 1
-		auto bs = std::bind(bigstep<picard>, std::placeholders::_1,
+		auto bs = std::bind(bigstep<picard,T>, std::placeholders::_1,
 		                    std::cref(F), std::cref(R2), std::cref(M2));
 		std::function<FUNCTION<std::vector<REAL>,REAL>(const std::vector<REAL> &)> bsf = bs;
 		auto on_domain = from_value<LAZY_BOOLEAN,std::vector<REAL>>(true);
@@ -1179,8 +1195,8 @@ void compute()
 	print_iterator(in.F);
 
 	if (in.F.is_autonomous())
-		plot_output<true,!!(METHOD_PICARD-0)>(in);
+		plot_output<true,!!(METHOD_PICARD-0),REAL>(in);
 	else
-		plot_output<false,!!(METHOD_PICARD-0)>(in);
+		plot_output<false,!!(METHOD_PICARD-0),REAL>(in);
 }
 
