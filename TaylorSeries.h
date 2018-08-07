@@ -377,7 +377,8 @@ public:
 inline FUNCTION<std::vector<REAL>,REAL > taylor_sum (
 		FUNCTION<std::vector<REAL>,unsigned int > coeff,
 		const REAL& radius,
-		const REAL& maximum
+		const REAL& maximum,
+		unsigned=0
 ) {
 	return new FUNCTIONAL_vector_taylor_sum<REAL>(coeff,radius,maximum);
 }
