@@ -1191,17 +1191,17 @@ struct Input {
 	int prcdiff;
 };
 
-template <bool autonomous>
+template <bool autonomous,typename T>
 void plot_output(const Input &in)
 {
-	FUNCTION<std::vector<TM>,REAL> taylor;
+	FUNCTION<std::vector<T>,REAL> taylor;
 
 	POLYNOMIAL_FLOW F = in.F;
-	std::vector<TM> w(in.w.size());
+	std::vector<T> w(in.w.size());
 	TM::set_default_sweep(in.sweepto);
 	TM::set_prec_diff(in.prcdiff);
-	for (unsigned i=0;i<in.w.size(); i++){
-		w[i]=TM(in.w[i]);
+	for (size_t i=0; i<in.w.size(); i++) {
+		w[i] = in.w[i];
 		w[i].round();
 	}
 
@@ -1250,8 +1250,8 @@ void plot_output(const Input &in)
 			stiff code(-5);
 			std::vector<REAL> wr(w.size());
 			for (unsigned i=0;i<w.size();i++)
-				wr[i] = w[i].to_real();
-			FUNCTION<std::vector<TM>,unsigned int> a
+				wr[i] = static_cast<REAL>(w[i]);
+			FUNCTION<std::vector<T>,unsigned int> a
 				= ivp_solver_recursive(F, w, false);
 			F.get_RM3(w, 0, in.delta, in.R_scale, eps_local,
 			          R2, M2, Lo, Rs, Ro, a);
@@ -1277,22 +1277,20 @@ void plot_output(const Input &in)
 		}
 
 		if (in.step_control_alg > 0) {
-			FUNCTION<std::vector<TM>,unsigned int> a
+			FUNCTION<std::vector<T>,unsigned int> a
 				= ivp_solver_recursive(F, w, false);
-			taylor = taylor_sum(a, R2, M2,0);
+			taylor = taylor_sum(a, R2, M2, 0);
 		} else {
-
-			auto bs = std::bind(bigstep<false,TM>, std::placeholders::_1,
+			auto bs = std::bind(bigstep<false,T>, std::placeholders::_1,
 			                    std::cref(F), std::cref(Ro), std::cref(M2));
 
-			std::function<FUNCTION<std::vector<TM>,REAL>(const std::vector<TM> &)> bsf = bs;
-			auto on_domain = from_value<LAZY_BOOLEAN,std::vector<TM>>(true);
+			std::function<FUNCTION<std::vector<T>,REAL>(const std::vector<T> &)> bsf = bs;
+			auto on_domain = from_value<LAZY_BOOLEAN,std::vector<T>>(true);
 
-
-			auto lip_alg = [Lo](const std::vector<TM>& w,const REAL& t) {
+			auto lip_alg = [Lo](const std::vector<T>& w,const REAL& t) {
 				return Lo;
 			};
-			std::function<REAL(const std::vector<TM> &,const REAL &)> lipf = lip_alg;
+			std::function<REAL(const std::vector<T> &,const REAL &)> lipf = lip_alg;
 
 			taylor = lipschitzify(from_algorithm(bsf),
 			                      from_algorithm(lipf),
@@ -1467,8 +1465,8 @@ void compute()
 	print_iterator(in.F);
 
 	if (in.F.is_autonomous())
-		plot_output<true>(in);
+		plot_output<true,TM>(in);
 	else
-		plot_output<false>(in);
+		plot_output<false,TM>(in);
 }
 
