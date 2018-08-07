@@ -180,8 +180,9 @@ public:
 		return max_result;
 	}
 
+	template <typename T>
 	void get_RM(
-		const std::vector<REAL> &w,
+		const std::vector<T> &w,
 		const REAL &t0,
 		const REAL &delta,
 		const REAL &eps,
@@ -291,8 +292,9 @@ public:
 		}
 	}
 
+	template <typename T>
 	void get_RM3(
-		const std::vector<TM>& w_tm,
+		const std::vector<T>& w_tm,
 		const REAL &t,
 		const REAL &delta,
 		const REAL &R_scale,
@@ -302,13 +304,13 @@ public:
 		REAL &Lo,
 		REAL &Rs,
 		REAL &Ro,
-		const FUNCTION<std::vector<TM>,unsigned int> a
+		const FUNCTION<std::vector<T>,unsigned int> a
 	) const {
 		std::vector<REAL> w_copy; w_copy.reserve(w_tm.size());
 		std::vector<REAL> w_abs; w_abs.reserve(w_tm.size());
 		REAL abs_w(0);
 		for (unsigned j = 0; j < w_tm.size(); j++) {
-			w_copy.push_back(w_tm[j].to_real());
+			w_copy.push_back(static_cast<REAL>(w_tm[j]));
 			w_abs.push_back(abs(w_copy[j]));
 ///**/			abs_w=maximum(abs_w, abs(w_copy[j]));
 /**/			abs_w += square(w_copy[j]);
