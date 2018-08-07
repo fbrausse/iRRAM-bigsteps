@@ -1184,6 +1184,9 @@ struct Input {
 	int step_control_alg;
 };
 
+static void unbox(TM &tm) { tm.round(); }
+static void unbox(REAL &r) {}
+
 template <bool autonomous,bool picard,typename T>
 void plot_output(const Input &in)
 {
@@ -1195,8 +1198,10 @@ void plot_output(const Input &in)
 
 	POLYNOMIAL_FLOW F = in.F;
 	std::vector<T> w(in.w.size());
-	for (size_t i=0; i<in.w.size(); i++)
+	for (size_t i=0; i<in.w.size(); i++) {
 		w[i] = in.w[i];
+		unbox(w[i]);
+	}
 
 	DYADIC_precision dyadic_prec(delta_t_p);
 
