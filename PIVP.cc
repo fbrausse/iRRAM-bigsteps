@@ -847,10 +847,10 @@ struct F_REAL {
 };
 
 template <typename F,typename R>
-class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<R>,unsigned int > {
+class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<R>,unsigned int> {
 public:
 	const F _flow;
-	TM initial_value;
+	TM initial_value; // TODO: remove
 	std::vector<std::vector<std::vector<F_REAL<R>>>> _a;
 
 	const unsigned int _dimension;
@@ -859,7 +859,7 @@ public:
 	/*Computes a_{\nu,n}^{(i+1)}*/
 	R a37part2(unsigned nu, unsigned n, unsigned i)
 	{
-		R sum=REAL(0);
+		R sum(0);
 		for (unsigned j=0; j <= n; j++)
 			sum += a(nu,1,j) * a(nu,i,n-j);
 		return sum;
@@ -873,7 +873,7 @@ public:
 			unsigned k = l;
 			return a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k);
 		} else {
-			R r = REAL(0);
+			R r(0);
 			for (unsigned k=0; k<=l; k++) {
 				r += a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k)
 				   * combination_recursive4(j+1, d_m_1, i, idx, l-k);
@@ -885,7 +885,7 @@ public:
 
 	R auto_ivp_38(unsigned int nu, int l)
 	{
-		R sum = REAL(0);
+		R sum(0);
 
 		dbg("auto_ivp(nu=%u, l=%u)\n", nu, l);
 		for (typename F::iterator_type idx = _flow.iterator(nu, l); idx; ++idx) {

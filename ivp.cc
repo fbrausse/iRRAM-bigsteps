@@ -661,33 +661,33 @@ struct F_REAL {
 */
 };
 
-template <typename F>
-class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<REAL>,unsigned int > {
+template <typename F,typename R>
+class FUNCTIONAL_IVP_SOLVER_RECURSIVE : public FUNCTIONAL_object<std::vector<R>,unsigned int> {
 public:
 	const F _flow;
-	std::vector<std::vector<std::vector<F_REAL<REAL>>>> _a;
+	std::vector<std::vector<std::vector<F_REAL<R>>>> _a;
 
 	const unsigned int _dimension;
 	const bool iv_is_zero;
 
 	/*Computes a_{\nu,n}^{(i+1)}*/
-	REAL a37part2(unsigned nu, unsigned n, unsigned i)
+	R a37part2(unsigned nu, unsigned n, unsigned i)
 	{
-		REAL sum(0);
+		R sum(0);
 		for (unsigned j=0; j <= n; j++)
 			sum += a(nu,1,j) * a(nu,i,n-j);
 		return sum;
 	}
 
 	template <typename V, typename W>
-	inline REAL combination_recursive4(
+	inline R combination_recursive4(
 		unsigned j, unsigned d_m_1, const V &i, const W &idx, unsigned l
 	) {
 		if (j == d_m_1) {
 			unsigned k = l;
 			return a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k);
 		} else {
-			REAL r = 0;
+			R r(0);
 			for (unsigned k=0; k<=l; k++) {
 				r += a(i[j],idx[i[j]],(iv_is_zero ? idx[i[j]] : 0) + k)
 				   * combination_recursive4(j+1, d_m_1, i, idx, l-k);
@@ -697,9 +697,9 @@ public:
 	}
 
 
-	REAL auto_ivp_38(unsigned int nu, int l)
+	R auto_ivp_38(unsigned int nu, int l)
 	{
-		REAL sum(0);
+		R sum(0);
 
 		dbg("auto_ivp(nu=%u, l=%u)\n", nu, l);
 		for (typename F::iterator_type idx = _flow.iterator(nu, l); idx; ++idx) {
@@ -750,12 +750,12 @@ public:
 	}
 
 	/*a(nu,i,n) returns a_{\nu,n}^{(i)}*/
-	const REAL & a(const unsigned nu, const unsigned i, const unsigned n)
+	const R & a(const unsigned nu, const unsigned i, const unsigned n)
 	{
-		F_REAL<REAL> &r = _a[nu][i][n];
+		F_REAL<R> &r = _a[nu][i][n];
 		if (r.valid != true) {
 			if (i == 0) {
-				r = F_REAL<REAL>((n == 0) ? 1 : 0);
+				r = F_REAL<R>((n == 0) ? 1 : 0);
 			} else if (i == 1) {
 				/* Assumption: n > 0 since for n=0, a_{\nu,n} is
 				 * valid since it is the \nu-th component of the
@@ -773,14 +773,14 @@ public:
 
 	FUNCTIONAL_IVP_SOLVER_RECURSIVE(
 		const F &flow,
-		const std::vector<REAL> &w, bool iv_is_zero
+		const std::vector<R> &w, bool iv_is_zero
 	) : _flow(flow), _dimension(flow.dimension()), iv_is_zero(iv_is_zero) 
 	{
 		_a.resize(_dimension);
 		for (unsigned nu = 0; nu < _dimension; nu++) {
 			_a[nu].resize(2);
 			_a[nu][0].resize(1);
-			_a[nu][0][0] = F_REAL<REAL>(1);
+			_a[nu][0][0] = F_REAL<R>(1);
 			_a[nu][1].resize(1);
 			_a[nu][1][0].x = w[nu];
 			_a[nu][1][0].valid = true;
@@ -790,7 +790,7 @@ public:
 
 	~FUNCTIONAL_IVP_SOLVER_RECURSIVE() {}
 
-	std::vector<REAL> eval(const unsigned int & n)
+	std::vector<R> eval(const unsigned int & n)
 	{
 		unsigned max_power = (_flow.mu() < 0) ? n : _flow.mu();
 
@@ -805,7 +805,7 @@ public:
 		//Timer t;
 		//t.start();
 
-		std::vector<REAL> result(_dimension);
+		std::vector<R> result(_dimension);
 		for (unsigned int nu = 0; nu < _dimension; nu++) {
 			result[nu] = a(nu,1,n);
 			iRRAM_DEBUG0(3,{cerr << "a(" << nu << ",1," << n << ") = " << result[nu] << "\n";});
@@ -882,13 +882,13 @@ public:
 	}
 };
 
-template <typename F>
-inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_recursive(
+template <typename F,typename R>
+inline FUNCTION<std::vector<R>,unsigned int > ivp_solver_recursive(
 	const F &flow,
-	const std::vector<REAL> &w,
+	const std::vector<R> &w,
 	bool iv_is_zero
 ) {
-	return new FUNCTIONAL_IVP_SOLVER_RECURSIVE<F>(flow, w, iv_is_zero);
+	return new FUNCTIONAL_IVP_SOLVER_RECURSIVE<F,R>(flow, w, iv_is_zero);
 }
 
 inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_picard(
