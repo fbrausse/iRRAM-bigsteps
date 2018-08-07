@@ -945,7 +945,6 @@ struct Smallstep_Control {
 	}
 };
 
-#if 1
 template <bool picard>
 static FUNCTION<std::vector<REAL>,REAL> bigstep(
 	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
@@ -957,22 +956,6 @@ static FUNCTION<std::vector<REAL>,REAL> bigstep(
 	           : ivp_solver_recursive(F, w, false);
 	return taylor_sum(a, R2, M2);
 }
-#else
-template <bool picard>
-static std::vector<REAL> bigstep(
-	const std::vector<REAL> &w, const POLYNOMIAL_FLOW &F,
-	const REAL &R2, const REAL &M2,
-	const DYADIC &current_t, DYADIC &delta_t,
-	FUNCTION<std::vector<REAL>,REAL> &taylor, sizetype &max_err
-) {
-	FUNCTION<std::vector<REAL>,unsigned int> a;
-
-	a = picard ? ivp_solver_picard(F, w, false)
-	           : ivp_solver_recursive(F, w, false);
-	taylor = taylor_sum(a, R2, M2);
-	return taylor((current_t + delta_t) - REAL(current_t));
-}
-#endif
 
 struct Input {
 	int p;
