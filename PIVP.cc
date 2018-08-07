@@ -68,16 +68,12 @@ public:
 
 	POLYNOMIAL_FLOW(unsigned dimension)
 	: _d(dimension), _mu(0), _autonomous(true), c(dimension)
-	{	for (unsigned nu=0; nu<dimension; nu++)
-			poly.push_back(POLYNOMIAL2(dimension+1)); //no content yet, just to get right size!
-	}
+	{}
 
 	POLYNOMIAL_FLOW(const POLYNOMIAL_FLOW &old, const REAL &told)
 	: _d(old._d), _mu(0), _autonomous(old.is_autonomous()), c(old._d)
 	{
 		unsigned d = _d;
-		for (unsigned nu=0; nu<d; nu++)
-			poly.push_back(POLYNOMIAL2(d));
 		for (unsigned nu=0; nu<_d; nu++) {
 			POLYNOMIAL2 p(d+1);
 			for (Iterator it = old.iterator(nu, old.mu()); it; ++it) {
@@ -97,7 +93,6 @@ public:
 				}
 				p += q;
 			}
-			poly[nu]=p;
 			for (const POLYNOMIAL2::I &ik : p.coefficients())
 				c[nu].push_back(ik);
 			_mu = std::max(_mu, p.degree());
@@ -109,7 +104,6 @@ public:
 		assert(nu < _d);
 		assert(coeff.ik.size() == _d + 1);
 		c[nu].push_back(coeff);
-		poly[nu].add_coeff(coeff);
 		for (unsigned j=0; j<=_d; j++)
 			_mu = std::max(_mu, coeff.ik[j]);
 		if (coeff.ik[_d] != 0)
@@ -130,9 +124,8 @@ public:
 		return idx->c;
 	}
 
-	REAL UF_bruteforce(
-		std::vector<REAL> w, REAL t0, const REAL &delta, const REAL &eps
-	) const {
+	REAL UF(std::vector<REAL> w, REAL t0, const REAL &delta, const REAL &eps) const
+	{
 		for (REAL &wj : w)
 			wj = abs(wj) + eps;
 		t0 = abs(t0) + delta;
@@ -154,6 +147,21 @@ public:
 		return max_result;
 	}
 
+	template <typename K2>
+	auto eval_poly(unsigned nu, const std::vector<K2> &x) const -> decltype(REAL(0) * x[0])
+	{
+		using KR = decltype(REAL(0) * x[0]);
+		assert(x.size() == d);
+		KR r = KR(REAL(0));
+		for (const I_type &i : c[nu]) {
+			K2 s = K2(REAL(1));
+			for (unsigned j=0; j<_d; j++)
+				s *= power(x[j], int(i.ik[j]));
+			r += i.c * s;
+		}
+		return r;
+	}
+
 // determine upperbound of the right hand side for complex parameters w (with eps) and t (with delta)
 	REAL UF_interval(
 		std::vector<REAL> w, const REAL &eps, REAL t, const REAL &delta
@@ -166,22 +174,23 @@ public:
 		                        INTERVAL( -delta,  delta,true));
 		REAL max_result(0);
 		for (unsigned nu=0; nu<dimension(); nu++) {
-			c_int res = poly[nu](w_int);
+			c_int res = eval_poly(nu, w_int);
 			REAL  mx  = mag(res);
 			max_result = maximum(mx, max_result);
 		}
 		return max_result;
 	}
 
+	template <typename T>
 	void get_RM(
-		const std::vector<REAL> &w,
+		const std::vector<T> &w,
 		const REAL &t0,
 		const REAL &delta,
 		const REAL &eps,
 		REAL &R,
 		REAL &M
 	) const {
-		REAL _UF = UF_bruteforce(w,t0,delta,eps);
+		REAL _UF = UF(w,t0,delta,eps);
 		// cout << "U: " << _UF << "\n";
 		R = minimum(delta, eps/_UF);
 		REAL abs_w(0);
@@ -193,7 +202,7 @@ public:
 		// besser: _UF neu berechnen, aber das macht nur bei nicht-autonomen
 		// Systemen einen Unterschied
 		// NM, 2013-08-31
-		M = abs_w + R*UF_bruteforce(w,t0,R,eps);
+		M = abs_w + R*UF(w,t0,R,eps);
 	}
 
 	REAL f_abs(
@@ -284,24 +293,25 @@ public:
 		}
 	}
 
+	template <typename T>
 	void get_RM3(
-		const std::vector<TM>& w_tm,
+		const std::vector<T>& w_tm,
 		const REAL &t,
 		const REAL &delta,
 		const REAL &R_scale,
 		REAL &eps,
 		REAL &R,
-		REAL &M, 
+		REAL &M,
 		REAL &Lo,
-		REAL &Rs, 
+		REAL &Rs,
 		REAL &Ro,
-		const FUNCTION<std::vector<TM>,unsigned int> &a
+		const FUNCTION<std::vector<T>,unsigned int> &a
 	) const {
 		std::vector<REAL> w_copy; w_copy.reserve(w_tm.size());
 		std::vector<REAL> w_abs; w_abs.reserve(w_tm.size());
 		REAL abs_w(0);
 		for (unsigned j = 0; j < w_tm.size(); j++) {
-			w_copy.push_back(w_tm[j].to_real());
+			w_copy.push_back(static_cast<REAL>(w_tm[j]));
 			w_abs.push_back(abs(w_copy[j]));
 ///**/			abs_w=maximum(abs_w, abs(w_copy[j]));
 /**/			abs_w += square(w_copy[j]);
@@ -320,7 +330,7 @@ public:
 		int simple=0;
 		int low=0,high=0; // the sampling fo the integral will be saved in [low..high] (including)
 
-		REAL R_delta[2*test_size]; 
+		REAL R_delta[2*test_size];
 		REAL epstest[2*test_size]; // R_delta[j] contains \int_{epstest[j-1]}^{epstest[j]} 1/U(s) ds
 
 		REAL Rtest[2*test_size];
@@ -383,7 +393,7 @@ public:
 
 		REAL Rsum= 0;
 		for (int j= low;j<=high;j++){
-			Rsum+=R_delta[j];Rtest[j]=Rsum; 
+			Rsum+=R_delta[j];Rtest[j]=Rsum;
 		}
 
 		REAL R_opt = minimum(delta, Rsum);
@@ -412,8 +422,8 @@ public:
 		eps=eps_simple; // return eps as the initial start value for the next step
 
 
-		// Now we try to improve the radius of convergence using information about the 
-		// real trajectory (that we can approximate reliably using and R_opt,M_opt 
+		// Now we try to improve the radius of convergence using information about the
+		// real trajectory (that we can approximate reliably using and R_opt,M_opt
 		REAL R0 = R_opt,R2=0;
 		REAL y_delta, R_test;
 		for (int k=100; k<130; k++){
@@ -437,13 +447,29 @@ public:
 		Lo = L_opt;
 	}
 
+	friend orstream & operator<<(orstream &o, const POLYNOMIAL_FLOW &p)
+	{
+		for (unsigned nu=0; nu<p.dimension(); nu++) {
+			o << "# ";
+			bool first = true;
+			for (const VI &i : p.c[nu]) {
+				if (!first)
+					o << "+";
+				o << "(" << i.c << ")";
+				for (unsigned k=0; k<i.ik.size(); k++)
+					o << "*x" << k << "^" << i.ik[k];
+				first = false;
+			}
+			o << "\n";
+		}
+		return o;
+	}
+
 private:
 	unsigned _d;
 	unsigned _mu;
 	bool _autonomous;
 	std::vector<std::vector<I_type>> c;
-public:
-	std::vector<POLYNOMIAL2> poly;
 };
 
 static REAL parse_REAL(const char *s)
@@ -1099,14 +1125,13 @@ inline FUNCTION<std::vector<REAL>,unsigned int > ivp_solver_auto(
 template <typename Flow>
 static void print_iterator(const Flow &F)
 {
-	cout << "## FLow under consideration:\n";
-	cout << "## dimension: " << F.dimension() << "\n";
+	cout << "# dimension: " << F.dimension() << "\n";
 	for (unsigned nu=0; nu<F.dimension(); nu++) {
 		auto it = F.iterator(nu,F.mu());
-		cout << "## it ? " << (it ? "true" : "false") << "\n";
+		cout << "# it ? " << (it ? "true" : "false") << "\n";
 		for (; it; ++it) {
 			unsigned i_ne0 = 0;
-			cout << "## c_{" << nu << "," << it[it.size()-1];
+			cout << "# c_{" << nu << "," << it[it.size()-1];
 			for (unsigned j=0; j<it.size()-1; j++) {
 				cout << "," << it[j];
 				if (it[j])
@@ -1116,9 +1141,8 @@ static void print_iterator(const Flow &F)
 			cout << "} = " << out << ", i != 0: " << i_ne0 << "\n";
 		}
 	}
-	for (unsigned nu=0; nu<F.dimension(); nu++)
-		cout << "#RHS     : " << F.poly[nu] << "\n";
-	cout << "## autonomous: " << (F.is_autonomous() ? "true" : "false") << "\n";
+	cout << "# RHS dim " << F.dimension() << ":\n" << F;
+	cout << "# autonomous: " << (F.is_autonomous() ? "true" : "false") << "\n";
 	assert(F.is_autonomous());//Jacobian not correct for non-autonomous!
 }
 

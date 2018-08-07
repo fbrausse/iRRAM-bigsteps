@@ -446,6 +446,24 @@ public:
 		Lo = L_opt;
 	}
 
+	friend orstream & operator<<(orstream &o, const POLYNOMIAL_FLOW &p)
+	{
+		for (unsigned nu=0; nu<p.dimension(); nu++) {
+			o << "# ";
+			bool first = true;
+			for (const VI &i : p.c[nu]) {
+				if (!first)
+					o << "+";
+				o << "(" << i.c << ")";
+				for (unsigned k=0; k<i.ik.size(); k++)
+					o << "*x" << k << "^" << i.ik[k];
+				first = false;
+			}
+			o << "\n";
+		}
+		return o;
+	}
+
 private:
 	unsigned _d;
 	unsigned _mu;
@@ -1120,6 +1138,8 @@ static void print_iterator(const Flow &F)
 			cout << "} = " << out << ", i != 0: " << i_ne0 << "\n";
 		}
 	}
+	cout << "# RHS dim " << F.dimension() << ":\n" << F;
+	cout << "# autonomous: " << (F.is_autonomous() ? "true" : "false") << "\n";
 }
 
 struct Smallstep_Control {
