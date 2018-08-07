@@ -1266,20 +1266,20 @@ void plot_output(const Input &in)
 		if (in.ssteps.n_not_delta) {
 			for (unsigned j=0; j<in.ssteps.n_smallsteps; j++) {
 				DYADIC t = (delta_t / (int)in.ssteps.n_smallsteps) * (int)j;
-				std::vector<REAL> y = taylor(REAL(t));
+				std::vector<T> y = taylor(REAL(t));
 				cout << "taylor( " << (t+current_t) << " ) = ( ";
-				cout << y[0];
+				cout << static_cast<REAL>(y[0]);
 				for (unsigned k=1; k<y.size(); k++)
-					cout << " , " << y[k];
+					cout << " , " << static_cast<REAL>(y[k]);
 				cout << " ), max_coeff = " << last_taylor_coeff << "\n" << std::flush;
 			}
 		} else {
 			for (; small_t < current_t + delta_t; small_t = small_t + REAL(in.ssteps.small_delta_t).as_DYADIC()) {
-				std::vector<REAL> y = taylor(REAL(small_t) - current_t);
+				std::vector<T> y = taylor(REAL(small_t) - current_t);
 				cout << "taylor( " << small_t << " ) = ( ";
-				cout << y[0];
+				cout << static_cast<REAL>(y[0]);
 				for (unsigned k=1; k<y.size(); k++)
-					cout << " , " << y[k];
+					cout << " , " << static_cast<REAL>(y[k]);
 				cout << " ), max_coeff = " << last_taylor_coeff << "\n" << std::flush;
 			}
 		}
