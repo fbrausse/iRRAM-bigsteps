@@ -169,25 +169,28 @@ public:
 		M = abs_w + R*UF(w,t0,R,eps);
 	}
 
-	REAL f_abs(unsigned nu, const std::vector<REAL> &w_abs, const REAL &s, const REAL &t) const
-	{
+	REAL f_abs(
+		unsigned nu, const std::vector<REAL> &w_abs, const REAL &eps,
+		const REAL &t_abs, const REAL &delta
+	) const {
 		REAL r(0);
 		for (Iterator it = iterator(nu, _mu); it; ++it) {
 			REAL m = abs((*this)(nu, it));
 			if (it[dimension()] != 0)
-				m *= power(t, it[dimension()]);
+				m *= power(t_abs+delta, it[dimension()]);
 			for (unsigned j=0; j<it->ni_gt0; j++)
-				m *= power(w_abs[it->idx_i_gt0[j]] + s, it[it->idx_i_gt0[j]]);
+				m *= power(w_abs[it->idx_i_gt0[j]] + eps,
+				           it[it->idx_i_gt0[j]]);
 			r += m;
 		}
 		return r;
 	}
 
-	REAL f_max(const std::vector<REAL> &w, const REAL &s, const REAL &t) const
+	REAL f_max(const std::vector<REAL> &w_abs, const REAL &eps, const REAL &t_abs, const REAL &delta=0) const
 	{
-		REAL m = f_abs(0, w, s, t);
+		REAL m = f_abs(0, w_abs, eps, t_abs, delta);
 		for (unsigned nu=1; nu<dimension(); nu++)
-			m = maximum(m, f_abs(nu, w, s, t));
+			m = maximum(m, f_abs(nu, w_abs, eps, t_abs, delta));
 		return m;
 	}
 
