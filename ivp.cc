@@ -996,7 +996,9 @@ void plot_output(const Input &in)
 	const DYADIC end_t = approx(in.final_t, cmp_p) + scale(INTEGER(2), cmp_p);
 
 	POLYNOMIAL_FLOW F = in.F;
-	std::vector<T> w = in.w;
+	std::vector<T> w(in.w.size());
+	for (size_t i=0; i<in.w.size(); i++)
+		w[i] = in.w[i];
 
 	DYADIC_precision dyadic_prec(delta_t_p);
 
@@ -1037,11 +1039,11 @@ void plot_output(const Input &in)
 		cout << "# w = (" << w[0];
 		for (unsigned k=1; k<w.size(); k++)
 			cout << ", " << w[k];
-		w[0].geterror(err);
+		err = geterror(w[0]);
 		cout << ") +/- (" << err.mantissa << "*2^(" << err.exponent << ")";
 		max_err = err;
 		for (unsigned k=1; k<w.size(); k++) {
-			w[k].geterror(err);
+			err = geterror(w[k]);
 			cout << ", " << err.mantissa << "*2^(" << err.exponent << ")";
 			if (sizetype_less(max_err, err))
 				max_err = err;

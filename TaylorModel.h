@@ -127,13 +127,20 @@ public:
 	static void set_prec_diff    (unsigned prd) { prec_diff=prd; }
 
 
-	void geterror_info(sizetype& error) {
+	void geterror_info(sizetype& error) const {
 		c0.geterror(error);
 		sizetype error2;
-		for (I &i : c) {
+		for (const I &i : c) {
 			i.ci.getsize(error2);
 			sizetype_inc(error,error2);
 		}
+	}
+
+	friend sizetype geterror(const TM &t)
+	{
+		sizetype r;
+		t.geterror_info(r);
+		return r;
 	}
 
 
