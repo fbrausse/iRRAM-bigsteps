@@ -391,6 +391,7 @@ ok:;
 	friend TM operator+(const TM &q, const TM &r)   { return TM(q) += r; }
 	friend TM operator-(const TM &q, const TM &r)   { return TM(q) -= r; }
 	friend TM operator*(const TM &q, const REAL &r) { return TM(q) *= r; }
+	friend TM operator/(      TM  q, int k)         { q *= REAL(1)/k; return q; }
 
 
 	friend orstream & operator<<(orstream &o, const TM &p)

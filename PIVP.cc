@@ -958,7 +958,7 @@ public:
 			}
 		}
 
-		return sum *(REAL(1)/ (l+1));
+		return sum / (l+1);
 	}
 
 	/*a(nu,i,n) returns a_{\nu,n}^{(i)}*/
