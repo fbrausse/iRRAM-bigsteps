@@ -295,7 +295,7 @@ public:
 		REAL &Lo,
 		REAL &Rs, 
 		REAL &Ro,
-		const FUNCTION<std::vector<TM>,unsigned int> a
+		const FUNCTION<std::vector<TM>,unsigned int> &a
 	) const {
 		std::vector<REAL> w_copy; w_copy.reserve(w_tm.size());
 		std::vector<REAL> w_abs; w_abs.reserve(w_tm.size());
