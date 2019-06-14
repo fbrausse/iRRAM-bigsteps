@@ -47,9 +47,6 @@ public:
 // value: point c_int  [0,0]
 c_int():_Ireal(0),_Iimag(0){}
 
-// copy constructor
-c_int(const c_int& C):_Ireal(C._Ireal),_Iimag(C._Iimag){}
-
 // value: c_int AxB from REAL intervals A,B
 c_int(const INTERVAL& A, const INTERVAL& B):_Ireal(A),_Iimag(B){}
 
