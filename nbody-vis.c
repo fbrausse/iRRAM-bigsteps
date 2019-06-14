@@ -1587,6 +1587,8 @@ static void process_noninteractively(
 						v[x/2] += tv / 4;
 					}
 #endif
+#else
+					(void)v; /* avoid warning */
 #endif
 					break;
 				}
