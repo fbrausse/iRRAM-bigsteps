@@ -1370,9 +1370,9 @@ void plot_output(const Input &in)
 			     << swrite(Rs,20,iRRAM_float_show) << ", "
 			     << swrite(delta_t,20,iRRAM_float_show)
 			     << ")\n";
-			for (int i=0; i<w.size(); i++)
+			for (size_t i=0; i<w.size(); i++)
 				cerr << " w_old[" << i << "]= " << w_old[i] << "\n";
-			for (int i=0; i<w.size(); i++)
+			for (size_t i=0; i<w.size(); i++)
 				cerr << " w_new[" << i << "]= " << w[i] << "\n";
 // 		    for (int i=0; i< w.size();i++) 
 // 		    for (int j=0; j< w.size();j++) 
